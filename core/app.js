@@ -414,7 +414,7 @@ function admin(){
     '<div class="fi-tabs"><button data-atab="pedidos" class="'+(tab==="pedidos"?"on":"")+'">Pedidos <span>'+no+'</span></button>'+
     '<button data-atab="productos" class="'+(tab==="productos"?"on":"")+'">Productos <span>'+np+'</span></button>'+
     '<button data-atab="comercio" class="'+(tab==="comercio"?"on":"")+'">Mi comercio</button>'+
-    (S.esSuper?'<button data-atab="comercios" class="'+(tab==="comercios"?"on":"")+'">Comercios <span>'+(S.comercios||[]).length+'</span></button>':'')+'</div>';
+    (S.esSuper?'<button data-atab="comercios" class="'+(tab==="comercios"?"on":"")+'">Comercios <span>'+(S.comercios||[]).length+'</span></button><button data-atab="prospeccion" class="'+(tab==="prospeccion"?"on":"")+'">Prospección</button>':'')+'</div>';
   var body;
   if(tab==="pedidos"&&S.pedidoId){body=pedidoDetalle();}
   else if(tab==="pedidos"){
@@ -439,6 +439,7 @@ function admin(){
       '<div class="fi-pfilter"><button data-pf="pend" class="'+(pf==="pend"?"on":"")+'">Pendientes ('+nPend+')</button><button data-pf="env" class="'+(pf==="env"?"on":"")+'">Enviados ('+nEnv+')</button><button data-pf="todos" class="'+(pf==="todos"?"on":"")+'">Todos ('+todos.length+')</button></div>'+
       (list?'<p class="fi-swipehint">Desliza un pedido hacia la izquierda para marcarlo como enviado.</p>'+list:'<p class="fi-empty">'+(todos.length?(pf==="env"?'No hay pedidos enviados.':pf==="pend"?'No hay pedidos pendientes. 🎉':'Todavía no hay pedidos.'):'Todavía no hay pedidos.')+'</p>');
   }else if(tab==="comercio"){body=miComercioHTML();
+  }else if(tab==="prospeccion"&&S.esSuper){if(!S.prosp){S.prosp={filtro:{sin:true,no:true,pend:true},est:"todos",cargando:true};cargarProspectos().then(render);}body=prospeccionHTML();
   }else if(tab==="comercios"&&S.esSuper){body=S.doc?documentosHTML():S.eco?ecoHTML():comerciosHTML();
   }else{
     var q=norm(S.adminQ);
@@ -1080,11 +1081,68 @@ async function cargarResumenEco(){var mes=mesesAtras(1)[0],ini=new Date();ini.se
   var ac={};(r[1].data||[]).forEach(function(a){ac[a.comercio_id]=a;});var plat=r[2].data||{};S.ecoRes={};
   (S.comercios||[]).forEach(function(c){var ps=(r[0].data||[]).filter(function(o){return o.comercio_id===c.id;});S.ecoRes[c.id]=liquidacion(ps,ac[c.id],plat,mes);});}
 
+
+/* ============ PROSPECCIÓN: plano privado de comercios candidatos (solo superadministrador) ============ */
+var PROSP_METRO=[40.43945,-3.66297];
+var PROSP_HEX={sin:"#2f7d22",no:"#d98a00",pend:"#8a94a0"};
+var PROSP_TXT={sin:"Sin web",no:"Web o redes, sin pedidos online",pend:"Web sin comprobar"};
+var PROSP_ESTADOS=["Pendiente","Visitada","Interesada","No interesada","Cliente"];
+var PROSP_EST_CLASE={"Pendiente":"pe","Visitada":"vi","Interesada":"in","No interesada":"ni","Cliente":"cl"};
+var _leaflet=null;
+function cargarLeaflet(){if(window.L&&window.L.map)return Promise.resolve(window.L);if(_leaflet)return _leaflet;
+  _leaflet=new Promise(function(ok,ko){var css=document.createElement("link");css.rel="stylesheet";css.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";document.head.appendChild(css);
+    var sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";sc.onload=function(){ok(window.L);};sc.onerror=function(){_leaflet=null;ko(new Error("No se pudo cargar el plano"));};document.head.appendChild(sc);});
+  return _leaflet;}
+async function cargarProspectos(){S.prosp=S.prosp||{filtro:{sin:true,no:true,pend:true},est:"todos"};S.prosp.cargando=true;
+  var r=await sb.from("prospectos").select("*").order("km",{ascending:true});
+  S.prosp.cargando=false;if(r.error){toast("No se pudieron cargar los prospectos: "+r.error.message);S.prosp.items=[];return;}S.prosp.items=r.data||[];}
+function urlMaps(p){return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(p.nombre+", "+(p.direccion||""))+(p.place_id?"&query_place_id="+encodeURIComponent(p.place_id):"");}
+function prospVisibles(){var P=S.prosp;return (P.items||[]).filter(function(p){return P.filtro[p.tipo_web||"sin"]&&(P.est==="todos"||p.estado===P.est);});}
+function prospeccionHTML(){var P=S.prosp;if(!P||P.cargando||!P.items)return '<p class="fi-empty">Cargando prospección…</p>';
+  var it=P.items,vis=prospVisibles();
+  var cuenta=function(f){return it.filter(f).length;};
+  var chips=["sin","no","pend"].map(function(k){return '<button class="fi-pchip'+(P.filtro[k]?' on':'')+'" data-pf2="'+k+'"><span class="dot" style="background:'+PROSP_HEX[k]+'"></span>'+PROSP_TXT[k]+' ('+cuenta(function(p){return p.tipo_web===k;})+')</button>';}).join("");
+  var est='<select id="pr_est" class="fi-sortsel">'+opt("todos","Todos los estados ("+it.length+")",P.est)+PROSP_ESTADOS.map(function(e){return opt(e,e+" ("+cuenta(function(p){return p.estado===e;})+")",P.est);}).join("")+'</select>';
+  var lista=vis.map(function(p){var sel=P.sel===p.id;
+    return '<div class="fi-pitem'+(sel?' sel':'')+'" data-pid2="'+p.id+'"><span class="fi-pnum" style="background:'+PROSP_HEX[p.tipo_web||"sin"]+'">'+(p.num||"")+'</span><div class="inf"><b>'+esc(p.nombre)+'</b><small>'+esc(p.direccion||"")+' · '+String(Number(p.km).toFixed(2)).replace(".",",")+' km</small><small>'+esc(p.pedidos||"")+(p.telefono?' · '+esc(p.telefono):'')+'</small>'+
+      (sel?'<div class="fi-pdet">'+(p.observaciones?'<p>'+esc(p.observaciones)+'</p>':'')+(p.web?'<p>Web: '+esc(p.web)+'</p>':'')+(p.valoracion?'<p>Google: '+String(p.valoracion).replace(".",",")+' ★</p>':'')+
+        '<label class="fi-l">Estado</label><select id="pr_estado_'+p.id+'" data-pest="'+p.id+'">'+PROSP_ESTADOS.map(function(e){return opt(e,e,p.estado);}).join("")+'</select>'+
+        '<label class="fi-l">Notas</label><textarea id="pr_nota_'+p.id+'" rows="3" placeholder="Con quién hablaste, qué respondió, cuándo volver…">'+esc(p.notas||"")+'</textarea>'+
+        '<div class="fi-btnrow"><button class="fi-newbtn" data-psave="'+p.id+'">Guardar</button><a class="fi-edit" href="'+urlMaps(p)+'" target="_blank" rel="noopener">Abrir en Google Maps ↗</a></div></div>':'')+
+      '</div><span class="fi-pest '+PROSP_EST_CLASE[p.estado]+'">'+esc(p.estado)+'</span></div>';}).join("");
+  return '<div class="fi-tabbar"><span>Fruterías a menos de 3 km del metro Parque de las Avenidas</span>'+est+'</div>'+
+    '<div class="fi-pchips">'+chips+'</div>'+
+    '<div id="pmap" class="fi-pmap"></div>'+
+    '<div class="fi-plist">'+(lista||'<p class="fi-empty">Ningún comercio con estos filtros.</p>')+'</div>';}
+function pintarPlanoProsp(){var el=document.getElementById("pmap");if(!el||!S.prosp||!S.prosp.items)return;
+  cargarLeaflet().then(function(L){if(!document.body.contains(el))return;var P=S.prosp;
+    var map=L.map(el,{scrollWheelZoom:false}).setView(P.vista?P.vista.c:PROSP_METRO,P.vista?P.vista.z:14);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+    [1,2,3].forEach(function(k){L.circle(PROSP_METRO,{radius:k*1000,color:"#1f5fbf",weight:1,opacity:.5,fill:false,dashArray:"4 6",interactive:false}).addTo(map);});
+    L.marker(PROSP_METRO,{icon:L.divIcon({className:"",html:'<div class="fi-ppin" style="width:28px;height:28px;background:#1f5fbf">M</div>',iconSize:[28,28],iconAnchor:[14,14]})}).addTo(map).bindTooltip("Metro Parque de las Avenidas");
+    prospVisibles().forEach(function(p){var dup=prospVisibles().filter(function(q){return q.lat===p.lat&&q.lng===p.lng&&(q.num||0)<(p.num||0);}).length;
+      var m=L.marker([p.lat+dup*0.00012,p.lng+dup*0.00018],{icon:L.divIcon({className:"",html:'<div class="fi-ppin" style="width:24px;height:24px;background:'+PROSP_HEX[p.tipo_web||"sin"]+(P.sel===p.id?';outline:3px solid #1f5fbf':'')+'">'+(p.num||"")+'</div>',iconSize:[24,24],iconAnchor:[12,12]})}).addTo(map);
+      m.bindTooltip(esc(p.nombre)+" · "+esc(p.estado));
+      m.on("click",function(){P.vista={c:[map.getCenter().lat,map.getCenter().lng],z:map.getZoom()};P.sel=p.id;render();var li=app.querySelector('[data-pid2="'+p.id+'"]');if(li)li.scrollIntoView({block:"nearest",behavior:"smooth"});});});
+    map.on("moveend",function(){P.vista={c:[map.getCenter().lat,map.getCenter().lng],z:map.getZoom()};});
+  }).catch(function(e){el.innerHTML='<p class="fi-empty">'+esc(e.message)+'</p>';});}
+function bindProsp(){if(!S.prosp)return;var P=S.prosp;
+  app.querySelectorAll("[data-pf2]").forEach(function(b){b.onclick=function(){var k=b.getAttribute("data-pf2");P.filtro[k]=!P.filtro[k];render();};});
+  var es=document.getElementById("pr_est");if(es)es.onchange=function(){P.est=es.value;render();};
+  app.querySelectorAll("[data-pid2]").forEach(function(d){d.onclick=function(e){if(e.target.closest("select,textarea,button,a,label"))return;var id=d.getAttribute("data-pid2");P.sel=P.sel===id?null:id;
+    var p=(P.items||[]).filter(function(x){return x.id===id;})[0];if(p&&P.sel)P.vista={c:[p.lat,p.lng],z:16};render();};});
+  app.querySelectorAll("[data-psave]").forEach(function(b){b.onclick=async function(){var id=b.getAttribute("data-psave");
+    var row={estado:document.getElementById("pr_estado_"+id).value,notas:document.getElementById("pr_nota_"+id).value.trim()||null,actualizado:new Date().toISOString()};
+    b.disabled=true;b.textContent="Guardando…";var r=await sb.from("prospectos").update(row).eq("id",id).select().single();
+    if(r.error){toast("No se pudo guardar: "+r.error.message);b.disabled=false;b.textContent="Guardar";return;}
+    P.items=P.items.map(function(x){return x.id===id?r.data:x;});render();toast("Guardado");};});
+  pintarPlanoProsp();}
+
 /* ============ EVENTOS ============ */
 function syncForm(){var f=S._f;if(!f)return;var g=function(id){return document.getElementById(id);};if(g("f_nombre"))f.nombre=g("f_nombre").value;if(g("f_desc"))f.desc=g("f_desc").value;if(g("f_precio"))f.precio=g("f_precio").value;if(g("f_unidad"))f.unidad=g("f_unidad").value;if(g("f_cat"))f.cat=g("f_cat").value;if(g("f_forma"))f.forma=g("f_forma").value;if(g("f_color"))f.color=g("f_color").value;}
 function updatePreview(){var f=S._f;if(!f)return;var prev=document.getElementById("f_prev");if(!prev)return;prev.src=f.img||artFor(f.nombre,f.cat,f.desc,{shape:f.forma,color:f.color});}
 function bind(){
-  bindSuper();bindMiComercio();bindDocs();bindEco();bindEdicion();pintarQRsPagina();
+  bindSuper();bindMiComercio();bindDocs();bindEco();bindEdicion();bindProsp();pintarQRsPagina();
   app.querySelectorAll("[data-view]").forEach(function(b){b.onclick=function(){S.view=b.getAttribute("data-view");S.screen="shop";S.editId=null;S.adding=false;S._f=null;if(S.view==="admin"&&S.user){cargarPedidos().then(render);return;}render();};});
   var home=app.querySelector('[data-act="home"]');if(home)home.onclick=function(){S.view="tienda";S.screen="shop";render();};
   app.querySelectorAll("[data-cat]").forEach(function(b){b.onclick=function(){S.cat=b.getAttribute("data-cat");render();};});
