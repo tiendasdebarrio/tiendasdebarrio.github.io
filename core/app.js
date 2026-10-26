@@ -336,7 +336,7 @@ async function repetirPedido(codigo){
 }
 function showRepetir(){var rec=codigosLocales();
   var m=document.createElement("div");m.className="fi-modal";
-  m.innerHTML='<div class="fi-modal-card fi-catmodal"><h2>🔁 Repetir un pedido</h2><p class="fi-hint" style="margin:0 0 10px">Escribe el código que recibiste al terminar tu pedido y añadiremos al carrito los mismos productos y cantidades. Podrás cambiarlos antes de confirmar.</p>'+
+  m.innerHTML='<div class="fi-modal-card fi-catmodal"><h2>🔁 Repetir un pedido</h2><p class="fi-hint" style="margin:0 0 10px">Escribe el código que recibiste al terminar tu pedido y añadiremos al carrito los mismos productos y cantidades. Luego podrás añadir o quitar lo que quieras antes de tramitarlo.</p>'+
     '<input id="rp_cod" class="fi-codin" maxlength="7" autocomplete="off" autocapitalize="characters" placeholder="Ej. K7M2QX">'+
     (rec.length?'<p class="fi-hint" style="margin:4px 0 8px">Tus últimos códigos en este dispositivo:</p><div class="fi-btnrow">'+rec.map(function(c){return '<button class="fi-edit fi-codchip" data-rc="'+esc(c)+'">'+esc(c)+'</button>';}).join("")+'</div>':'')+
     '<div class="acts" style="margin-top:14px"><span></span><div class="fi-btnrow"><button class="fi-edit" id="rp_c">Cancelar</button><button class="fi-newbtn" id="rp_ok">Añadir al carrito</button></div></div></div>';
@@ -344,7 +344,7 @@ function showRepetir(){var rec=codigosLocales();
   inp.oninput=function(){inp.value=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);};
   m.onclick=function(e){if(e.target===m)m.remove();var c=e.target.closest&&e.target.closest("[data-rc]");if(c){inp.value=c.getAttribute("data-rc");}};
   m.querySelector("#rp_c").onclick=function(){m.remove();};
-  var go=async function(){var b=m.querySelector("#rp_ok");b.disabled=true;if(await repetirPedido(inp.value)){m.remove();S.screen="checkout";S.view="tienda";render();window.scrollTo(0,0);}else b.disabled=false;};
+  var go=async function(){var b=m.querySelector("#rp_ok");b.disabled=true;if(await repetirPedido(inp.value)){m.remove();S.screen="shop";S.view="tienda";S.cat="todos";S.search="";render();window.scrollTo(0,0);}else b.disabled=false;};
   m.querySelector("#rp_ok").onclick=go;inp.onkeydown=function(e){if(e.key==="Enter")go();};
   setTimeout(function(){inp.focus();},50);}
 
@@ -439,7 +439,7 @@ function admin(){
       '<div class="fi-pfilter"><button data-pf="pend" class="'+(pf==="pend"?"on":"")+'">Pendientes ('+nPend+')</button><button data-pf="env" class="'+(pf==="env"?"on":"")+'">Enviados ('+nEnv+')</button><button data-pf="todos" class="'+(pf==="todos"?"on":"")+'">Todos ('+todos.length+')</button></div>'+
       (list?'<p class="fi-swipehint">Desliza un pedido hacia la izquierda para marcarlo como enviado.</p>'+list:'<p class="fi-empty">'+(todos.length?(pf==="env"?'No hay pedidos enviados.':pf==="pend"?'No hay pedidos pendientes. 🎉':'Todavía no hay pedidos.'):'Todavía no hay pedidos.')+'</p>');
   }else if(tab==="comercio"){body=miComercioHTML();
-  }else if(tab==="comercios"&&S.esSuper){body=comerciosHTML();
+  }else if(tab==="comercios"&&S.esSuper){body=S.doc?documentosHTML():comerciosHTML();
   }else{
     var q=norm(S.adminQ);
     var vis=S.products.filter(function(p){return !q||textoBusqueda(p).indexOf(q)>=0;});
@@ -680,8 +680,8 @@ function comerciosHTML(){var l=(S.comercios||[]).map(function(c){var us=(S.cuUse
   return '<div class="fi-card2"><div class="fi-com"><div class="lg" style="background:'+esc(c.color||"#2f7d22")+'">'+(c.logo?'<img src="'+esc(c.logo)+'" alt="">':inicial(c.nombre))+'</div><div class="inf"><b>'+esc(c.nombre)+'</b><span class="fi-tag '+(c.activo?'on">Activa':'off">Desactivada')+'</span>'+
     '<small><a href="'+esc(urlComercio(c))+'" target="_blank" rel="noopener">'+esc(urlComercio(c))+'</a></small>'+
     '<div class="users">Accesos: '+(us.length?us.map(function(e){return '<span>'+esc(e)+'<button data-cupass="'+esc(c.id)+'|'+esc(e)+'" title="Cambiar contraseña">🔑</button><button data-cudel="'+esc(c.id)+'|'+esc(e)+'" title="Quitar acceso">✕</button></span>';}).join(""):'<i>ninguno</i>')+'</div></div></div>'+
-    '<div class="fi-comacts"><a class="fi-edit" href="?c='+encodeURIComponent(c.slug)+'#admin">⚙️ Gestionar</a><button class="fi-edit" data-cuadd="'+esc(c.id)+'">+ Acceso</button><button class="fi-edit" data-dlindex="'+esc(c.slug)+'">⬇ index.html</button><button class="fi-edit" data-dlqr="'+esc(c.slug)+'">⬇ QR</button><button class="fi-edit" data-dlcartel="'+esc(c.slug)+'">⬇ Cartel</button><button class="fi-edit" data-curl="'+esc(c.id)+'">🔗 Dirección</button><button class="'+(c.activo?'fi-del':'fi-edit')+'" data-cuact="'+esc(c.id)+'">'+(c.activo?'Desactivar':'Activar')+'</button></div></div>';}).join("");
-  return '<div class="fi-tabbar"><span>'+(S.comercios||[]).length+' comercios en la plataforma</span><button class="fi-newbtn" data-newcom="1">+ Nuevo comercio</button></div>'+l;}
+    '<div class="fi-comacts"><button class="fi-newbtn" data-docs="'+esc(c.id)+'">📄 Documentos</button><a class="fi-edit" href="?c='+encodeURIComponent(c.slug)+'#admin">⚙️ Gestionar</a><button class="fi-edit" data-cuadd="'+esc(c.id)+'">+ Acceso</button><button class="fi-edit" data-dlindex="'+esc(c.slug)+'">⬇ index.html</button><button class="fi-edit" data-dlqr="'+esc(c.slug)+'">⬇ QR</button><button class="fi-edit" data-dlcartel="'+esc(c.slug)+'">⬇ Cartel</button><button class="fi-edit" data-curl="'+esc(c.id)+'">🔗 Dirección</button><button class="'+(c.activo?'fi-del':'fi-edit')+'" data-cuact="'+esc(c.id)+'">'+(c.activo?'Desactivar':'Activar')+'</button></div></div>';}).join("");
+  return '<div class="fi-tabbar"><span>'+(S.comercios||[]).length+' comercios en la plataforma</span><div class="fi-btnrow"><button class="fi-edit" data-prest="1">🧾 Mis datos de prestador</button><button class="fi-newbtn" data-newcom="1">+ Nuevo comercio</button></div></div>'+l;}
 function indexHTML(c){return '<!DOCTYPE html>\n<html lang="es">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">\n<title>'+esc(c.nombre)+' — Tienda online</title>\n<style>.fi-load{font-family:system-ui,sans-serif;text-align:center;color:#999;padding:40px}</style>\n</head>\n<body>\n<div id="app"><div class="fi-load">Cargando tienda…</div></div>\n<script>\nwindow.COMERCIO = "'+c.slug+'";\n(function () {\n  var B = "'+CORE_URL+'";\n  fetch(B + "version.json?t=" + Date.now(), { cache: "no-store" })\n    .then(function (r) { return r.json(); })\n    .catch(function () { return { v: Date.now() }; })\n    .then(function (j) {\n      var l = document.createElement("link"); l.rel = "stylesheet"; l.href = B + "app.css?v=" + j.v; document.head.appendChild(l);\n      var s = document.createElement("script"); s.type = "module"; s.src = B + "app.js?v=" + j.v; document.body.appendChild(s);\n    });\n})();\n<\/script>\n</body>\n</html>\n';}
 function descargarTexto(txt,nombre,tipo){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:tipo||"text/html"}));a.download=nombre;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);}
 async function llamarGestionUsuarios(body){var r=await sb.functions.invoke("gestion-usuarios",{body:body});
@@ -776,11 +776,181 @@ function bindMiComercio(){
   var sv=app.querySelector("[data-mcsave]");if(sv)sv.onclick=async function(){sv.disabled=true;sv.textContent="Guardando…";if(await guardarMiComercio()){if(S.esSuper)await cargarComercios();render();toast("Datos de la tienda guardados");}else{sv.disabled=false;sv.textContent="Guardar cambios";}};
 }
 
+
+/* ============ DOCUMENTACIÓN LEGAL DE CADA COMERCIO (solo superadministrador) ============ */
+var DOC_TIPOS=[
+  {id:"servicio",t:"Contrato de prestación de servicios",d:"Relación comercial entre la plataforma y el comercio: servicio, precio, duración y responsabilidades.",firma:true},
+  {id:"encargado",t:"Contrato de encargado del tratamiento",d:"Obligatorio por el art. 28 del RGPD: tú tratas los datos de los clientes del comercio por su cuenta.",firma:true},
+  {id:"registro",t:"Registro de actividades de tratamiento",d:"Documento interno del comercio (art. 30 RGPD) que describe el tratamiento de los datos de los pedidos.",firma:false},
+  {id:"legales",t:"Textos legales de la tienda online",d:"Aviso legal, condiciones de contratación, privacidad y cookies tal y como se publican en su web.",firma:false}
+];
+function hoyISO(){var d=new Date();return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);}
+function fechaLarga(iso){if(!iso)return "";var d=new Date(iso+"T12:00:00");return d.toLocaleDateString("es-ES",{day:"numeric",month:"long",year:"numeric"});}
+function V(v,ph){return (v!=null&&String(v).trim()!=="")?esc(v):'<span class="pend">['+ph+']</span>';}
+function numES(n){return String(Number(n)).replace(".",",");}
+
+async function abrirDocs(cid){
+  S.doc={cargando:true,cid:cid};render();
+  var r=await Promise.all([
+    sb.from("comercios").select("*").eq("id",cid).maybeSingle(),
+    sb.from("acuerdos").select("*").eq("comercio_id",cid).maybeSingle(),
+    sb.from("plataforma").select("*").eq("id",1).maybeSingle(),
+    sb.from("documentos").select("*").eq("comercio_id",cid)
+  ]);
+  if(r[0].error||!r[0].data){toast("No se pudo cargar el comercio");S.doc=null;render();return;}
+  var docs={};(r[3].data||[]).forEach(function(d){docs[d.tipo]=d;});
+  S.doc={cid:cid,com:r[0].data,acuerdo:r[1].data||{comercio_id:cid},plat:r[2].data||{id:1},docs:docs};
+  render();window.scrollTo(0,0);
+}
+function condicionesEconomicas(a,p){
+  var com=(a&&a.comision!=null)?Number(a.comision):(p&&p.comision!=null?Number(p.comision):null);
+  var cuo=(a&&a.cuota!=null)?Number(a.cuota):(p&&p.cuota!=null?Number(p.cuota):null);
+  if(com==null&&cuo==null)return '<span class="pend">[CONDICIONES ECONÓMICAS]</span>';
+  var partes=[];
+  if(cuo>0)partes.push("una cuota fija de <b>"+fmtEur(cuo)+" al mes</b>");
+  if(com>0)partes.push("una comisión del <b>"+numES(com)+" %</b> sobre el importe total (IVA incluido) de los pedidos recibidos a través de la tienda online y no anulados");
+  if(!partes.length)return "El servicio se presta <b>sin coste</b> para el CLIENTE mientras las partes no acuerden otra cosa por escrito.";
+  return "Como contraprestación, el CLIENTE abonará al PRESTADOR "+partes.join(" más ")+". Estos importes no incluyen el IVA ni otros impuestos aplicables, que se añadirán en la factura.";
+}
+function firmasHTML(izq,der,nomIzq,nomDer){return '<p style="margin-top:28px">Y en prueba de conformidad, ambas partes firman el presente documento por duplicado y a un solo efecto, en el lugar y fecha indicados en el encabezamiento.</p>'+
+  '<table class="firmas" style="width:100%;margin-top:30px"><tr><td style="width:50%;vertical-align:bottom;padding-top:70px">______________________________<br><b>'+izq+'</b><br>'+nomIzq+'</td><td style="width:50%;vertical-align:bottom;padding-top:70px">______________________________<br><b>'+der+'</b><br>'+nomDer+'</td></tr></table>';}
+function encabezado(titulo){return '<h1>'+titulo+'</h1><p style="text-align:center">En Madrid, a ____ de ______________ de ______</p>';}
+function partesHTML(p,c,rolP,rolC){return '<h2>REUNIDOS</h2>'+
+  '<p>De una parte, <b>'+V(p.titular,"NOMBRE DEL PRESTADOR")+'</b>, con NIF '+V(p.nif,"NIF DEL PRESTADOR")+' y domicilio en '+V(p.domicilio,"DOMICILIO DEL PRESTADOR")+', correo electrónico '+V(p.email,"EMAIL")+', en adelante, el <b>'+rolP+'</b>.</p>'+
+  '<p>De otra parte, <b>'+V(c.titular,"TITULAR DEL COMERCIO")+'</b>, con NIF/CIF '+V(c.nif,"NIF/CIF DEL COMERCIO")+' y domicilio en '+V(c.domicilio,"DOMICILIO DEL COMERCIO")+', que actúa bajo el nombre comercial «'+V(c.nombre,"NOMBRE COMERCIAL")+'», correo electrónico '+V(c.email,"EMAIL")+' y teléfono '+V(c.telefono,"TELÉFONO")+(c.registro?', '+esc(c.registro):'')+', en adelante, el <b>'+rolC+'</b>.</p>'+
+  '<p>Ambas partes se reconocen mutuamente la capacidad legal necesaria para obligarse en este acto y, a tal efecto,</p>';}
+
+function docServicio(c,a,p){var url=esc(c.url||"");return encabezado("CONTRATO DE PRESTACIÓN DE SERVICIOS DE TIENDA ONLINE")+partesHTML(p,c,"PRESTADOR","CLIENTE")+
+  '<h2>EXPONEN</h2><p>I. Que el PRESTADOR ha desarrollado y gestiona una plataforma de tiendas online para comercios de proximidad, que permite publicar un catálogo de productos y recibir pedidos de clientes a través de internet.</p><p>II. Que el CLIENTE está interesado en disponer de una tienda online en dicha plataforma para su establecimiento, por lo que ambas partes acuerdan celebrar el presente contrato con arreglo a las siguientes</p>'+
+  '<h2>CLÁUSULAS</h2>'+
+  '<h3>Primera. Objeto</h3><p>El PRESTADOR pone a disposición del CLIENTE, en régimen de servicio, una tienda online accesible en la dirección '+(url||'<span class="pend">[DIRECCIÓN WEB]</span>')+', que incluye: (a) la publicación del catálogo de productos con precios, categorías y fotografías; (b) la recepción de pedidos de sus clientes; (c) un panel de gestión («Mi tienda») para administrar productos, categorías, pedidos y datos del comercio; (d) un código QR y un cartel para dar a conocer la tienda; y (e) el alojamiento, mantenimiento y actualización técnica de la plataforma.</p>'+
+  '<h3>Segunda. Obligaciones del PRESTADOR</h3><p>El PRESTADOR se compromete a: mantener la plataforma operativa con la diligencia de un profesional del sector; corregir en un plazo razonable los fallos técnicos que le sean comunicados; facilitar al CLIENTE las credenciales de acceso a su panel de gestión; aplicar las medidas de seguridad descritas en el contrato de encargado del tratamiento; y prestar soporte por correo electrónico en días laborables.</p>'+
+  '<h3>Tercera. Obligaciones del CLIENTE</h3><p>El CLIENTE es el único vendedor de los productos ofrecidos en su tienda y responsable de la relación de compraventa con sus clientes. En particular, se obliga a: mantener actualizados y veraces el catálogo, los precios (con IVA incluido), la disponibilidad y los datos legales de su comercio; atender, preparar y entregar los pedidos recibidos; cumplir la normativa de consumo, comercio electrónico (LSSI-CE), higiene alimentaria y fiscal que le resulte aplicable; custodiar sus credenciales de acceso; y no utilizar la plataforma para fines ilícitos.</p>'+
+  '<h3>Cuarta. Precio y forma de pago</h3><p>'+condicionesEconomicas(a,p)+'</p><p>El PRESTADOR emitirá una factura mensual dentro de los primeros cinco días de cada mes, referida al mes anterior, con el detalle de los pedidos computables. El CLIENTE la abonará en un plazo de quince días mediante transferencia bancaria a la cuenta que indique el PRESTADOR. El PRESTADOR podrá actualizar el precio comunicándolo con un mes de antelación; si el CLIENTE no estuviera de acuerdo, podrá resolver el contrato sin penalización.</p>'+(a&&a.observaciones?'<p>Condiciones particulares: '+esc(a.observaciones)+'</p>':'')+
+  '<h3>Quinta. Duración</h3><p>El presente contrato entra en vigor el '+(a&&a.inicio?'<b>'+fechaLarga(a.inicio)+'</b>':'<span class="pend">[FECHA DE INICIO]</span>')+' y tiene una duración indefinida. Cualquiera de las partes podrá darlo por terminado en cualquier momento comunicándolo a la otra por escrito (incluido el correo electrónico) con al menos quince días de antelación.</p>'+
+  '<h3>Sexta. Propiedad intelectual</h3><p>El software, el diseño y el código de la plataforma pertenecen al PRESTADOR, que concede al CLIENTE un derecho de uso no exclusivo e intransferible mientras dure el contrato. Los textos, fotografías propias, logotipos y marcas del CLIENTE siguen siendo de su titularidad, y este autoriza al PRESTADOR a utilizarlos solo para prestar el servicio.</p>'+
+  '<h3>Séptima. Protección de datos</h3><p>Para prestar el servicio, el PRESTADOR trata datos personales de los clientes del CLIENTE en calidad de encargado del tratamiento. Dicho tratamiento se regula en el contrato de encargado del tratamiento firmado entre las partes conforme al artículo 28 del Reglamento (UE) 2016/679, que forma parte inseparable de este contrato.</p>'+
+  '<h3>Octava. Disponibilidad y responsabilidad</h3><p>La plataforma se apoya en servicios de terceros (alojamiento web y base de datos en la nube), por lo que el PRESTADOR no garantiza una disponibilidad ininterrumpida, aunque hará lo razonable para restablecer el servicio cuanto antes. El PRESTADOR no responde de la relación de compraventa entre el CLIENTE y sus clientes, ni de los errores en precios o productos introducidos por el CLIENTE. Salvo dolo o culpa grave, la responsabilidad total del PRESTADOR frente al CLIENTE se limita al importe abonado por este en los doce meses anteriores al hecho que la origine.</p>'+
+  '<h3>Novena. Confidencialidad</h3><p>Las partes guardarán confidencialidad sobre la información de la otra a la que tengan acceso con motivo del contrato, durante su vigencia y después de su terminación.</p>'+
+  '<h3>Décima. Terminación</h3><p>Además del preaviso de la cláusula quinta, cualquiera de las partes podrá resolver el contrato de forma inmediata si la otra incumple gravemente sus obligaciones y no lo corrige en diez días desde que se le requiera por escrito. A la terminación, el PRESTADOR desactivará la tienda, entregará al CLIENTE, si lo solicita, una copia de su catálogo y pedidos, y procederá con los datos personales según lo previsto en el contrato de encargado del tratamiento.</p>'+
+  '<h3>Undécima. Comunicaciones</h3><p>Las comunicaciones entre las partes se realizarán por escrito a los correos electrónicos indicados en el encabezamiento, que se consideran válidos a todos los efectos.</p>'+
+  '<h3>Duodécima. Ley aplicable y jurisdicción</h3><p>Este contrato se rige por la legislación española. Para cualquier controversia, las partes se someten a los juzgados y tribunales de Madrid capital.</p>'+
+  firmasHTML("EL PRESTADOR","EL CLIENTE",V(p.titular,"NOMBRE"),V(c.titular,"NOMBRE O RAZÓN SOCIAL"));}
+
+function docEncargado(c,a,p){return encabezado("CONTRATO DE ENCARGADO DEL TRATAMIENTO<br><small>(artículo 28 del Reglamento (UE) 2016/679)</small>")+partesHTML(p,c,"ENCARGADO","RESPONSABLE")+
+  '<h2>EXPONEN</h2><p>Que las partes han suscrito un contrato de prestación de servicios de tienda online para el comercio «'+V(c.nombre,"NOMBRE COMERCIAL")+'», cuya ejecución exige que el ENCARGADO trate datos personales por cuenta del RESPONSABLE, por lo que acuerdan las siguientes</p>'+
+  '<h2>CLÁUSULAS</h2>'+
+  '<h3>1. Objeto, naturaleza y finalidad</h3><p>El ENCARGADO tratará por cuenta del RESPONSABLE los datos personales necesarios para prestar el servicio de tienda online ('+esc(c.url||"")+'): alojamiento, conservación y puesta a disposición del RESPONSABLE de los pedidos realizados por sus clientes, así como el soporte técnico y el mantenimiento de la plataforma. Las operaciones de tratamiento son: recogida, registro, conservación, consulta, modificación por instrucción del RESPONSABLE y supresión.</p>'+
+  '<h3>2. Datos y personas afectadas</h3><p><b>Categorías de interesados:</b> clientes y potenciales clientes del RESPONSABLE que realizan pedidos en su tienda online; usuarios con acceso al panel de gestión del comercio.<br><b>Categorías de datos:</b> nombre y apellidos, teléfono, dirección de entrega, forma de pago elegida, productos pedidos e importes, notas del pedido, fecha y hora de aceptación de las condiciones y, para los usuarios del panel, su dirección de correo electrónico. No se tratan datos bancarios ni categorías especiales de datos.</p>'+
+  '<h3>3. Duración</h3><p>Este contrato tiene la misma duración que el contrato de prestación de servicios del que trae causa.</p>'+
+  '<h3>4. Obligaciones del ENCARGADO</h3><p>El ENCARGADO se obliga a: (a) tratar los datos únicamente siguiendo las instrucciones documentadas del RESPONSABLE y para la finalidad indicada, informándole si considera que alguna instrucción infringe la normativa; (b) garantizar que las personas autorizadas para tratar los datos se han comprometido a respetar su confidencialidad; (c) aplicar las medidas técnicas y organizativas del artículo 32 RGPD descritas en el Anexo; (d) no comunicar los datos a terceros salvo a los subencargados autorizados en la cláusula 5 o por obligación legal; (e) asistir al RESPONSABLE en la atención de los derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad, trasladándole en un plazo máximo de cinco días hábiles cualquier solicitud que reciba; (f) notificar al RESPONSABLE, sin dilación indebida y en un plazo máximo de 48 horas desde que tenga conocimiento, cualquier violación de la seguridad de los datos, con la información necesaria para que este pueda, en su caso, notificarla a la autoridad de control; (g) ayudar al RESPONSABLE en las evaluaciones de impacto y consultas previas cuando proceda; (h) poner a su disposición la información necesaria para demostrar el cumplimiento de estas obligaciones y permitir auditorías razonables, con preaviso; y (i) llevar, cuando sea obligatorio, un registro de las actividades de tratamiento efectuadas por cuenta del RESPONSABLE.</p>'+
+  '<h3>5. Subencargados</h3><p>El RESPONSABLE autoriza al ENCARGADO a recurrir a los siguientes subencargados, que ofrecen garantías suficientes conforme al RGPD:</p><ul><li><b>Supabase, Inc.</b>: base de datos y autenticación, con los datos alojados en servidores de la Unión Europea (Irlanda). Sus condiciones de tratamiento incluyen las cláusulas contractuales tipo de la Comisión Europea para posibles accesos desde fuera del EEE.</li><li><b>GitHub, Inc.</b> (GitHub Pages): alojamiento de los archivos de la web. No almacena los datos de los pedidos, pero recibe la dirección IP de los visitantes al servir la página. Se acoge al Marco de Privacidad de Datos UE-EE. UU. y a cláusulas contractuales tipo.</li></ul><p>El ENCARGADO informará al RESPONSABLE de cualquier cambio de subencargado con al menos quince días de antelación, para que pueda oponerse. El ENCARGADO impondrá a los subencargados las mismas obligaciones de protección de datos que asume en este contrato.</p>'+
+  '<h3>6. Obligaciones del RESPONSABLE</h3><p>Corresponde al RESPONSABLE: informar a sus clientes del tratamiento mediante la política de privacidad de su tienda; disponer de base legal para tratar los datos; facilitar al ENCARGADO las instrucciones necesarias; custodiar las credenciales de acceso de sus usuarios; y supervisar el tratamiento.</p>'+
+  '<h3>7. Destino de los datos al terminar</h3><p>Al finalizar la prestación del servicio, el ENCARGADO, a elección del RESPONSABLE, le devolverá los datos personales en un formato estructurado y de uso común y/o los suprimirá en un plazo de treinta días, incluidas las copias existentes, salvo que deban conservarse bloqueados por obligación legal mientras puedan derivarse responsabilidades.</p>'+
+  '<h3>8. Responsabilidad</h3><p>Si el ENCARGADO destina los datos a otra finalidad, los comunica o los utiliza incumpliendo este contrato, será considerado también responsable del tratamiento y responderá de las infracciones en que hubiera incurrido personalmente.</p>'+
+  '<h3>9. Ley aplicable</h3><p>Este contrato se rige por el RGPD, la Ley Orgánica 3/2018 (LOPDGDD) y demás legislación española aplicable.</p>'+
+  '<h2>ANEXO. MEDIDAS DE SEGURIDAD</h2><ul><li>Conexiones cifradas (HTTPS/TLS) entre la web, el panel y la base de datos.</li><li>Control de acceso a nivel de fila en la base de datos: cada comercio solo puede leer y modificar sus propios datos, y los visitantes anónimos no pueden leer pedidos.</li><li>Registro de nuevas cuentas desactivado: solo el ENCARGADO puede dar de alta usuarios, con contraseña de al menos 8 caracteres.</li><li>Verificación en dos pasos en las cuentas de administración de los proveedores (alojamiento y base de datos).</li><li>Mínimo acceso: solo el ENCARGADO, como administrador de la plataforma, y los usuarios autorizados del RESPONSABLE acceden a los pedidos.</li><li>Copias de seguridad automáticas del proveedor de base de datos.</li><li>No se almacenan datos de tarjetas bancarias: el pago se realiza en la entrega.</li></ul>'+
+  firmasHTML("EL ENCARGADO","EL RESPONSABLE",V(p.titular,"NOMBRE"),V(c.titular,"NOMBRE O RAZÓN SOCIAL"));}
+
+function docRegistro(c,a,p){var fila=function(k,v){return '<tr><th style="text-align:left;vertical-align:top;width:32%;padding:6px;border:1px solid #999;background:#f2f2f2">'+k+'</th><td style="padding:6px;border:1px solid #999">'+v+'</td></tr>';};
+  return '<h1>REGISTRO DE ACTIVIDADES DE TRATAMIENTO</h1><p style="text-align:center">Artículo 30 del Reglamento (UE) 2016/679 · Actualizado a '+fechaLarga(hoyISO())+'</p>'+
+  '<h2>Responsable del tratamiento</h2><table style="width:100%;border-collapse:collapse">'+fila("Titular",V(c.titular,"TITULAR"))+fila("NIF/CIF",V(c.nif,"NIF/CIF"))+fila("Nombre comercial",V(c.nombre,"NOMBRE COMERCIAL"))+fila("Domicilio",V(c.domicilio,"DOMICILIO"))+fila("Contacto",V(c.email,"EMAIL")+' · '+V(c.telefono,"TELÉFONO"))+fila("Delegado de protección de datos","No designado (no obligatorio por volumen y tipo de datos)")+'</table>'+
+  '<h2>Actividad: gestión de pedidos de la tienda online</h2><table style="width:100%;border-collapse:collapse">'+
+  fila("Finalidad","Gestionar, confirmar, preparar y entregar los pedidos realizados en la tienda online "+esc(c.url||"")+", contactar con el cliente sobre su pedido y atender incidencias y reclamaciones.")+
+  fila("Base legal","Ejecución de un contrato (art. 6.1.b RGPD) y cumplimiento de obligaciones legales fiscales y mercantiles (art. 6.1.c RGPD).")+
+  fila("Categorías de interesados","Clientes que realizan pedidos en la tienda online.")+
+  fila("Categorías de datos","Identificativos (nombre y apellidos), de contacto (teléfono), dirección de entrega, detalle del pedido (productos, cantidades, importe, forma de pago, notas) y fecha de aceptación de las condiciones. No se tratan categorías especiales ni datos bancarios.")+
+  fila("Destinatarios","No se ceden datos a terceros salvo obligación legal. Encargado del tratamiento: "+V(p.titular,"PRESTADOR DE LA PLATAFORMA")+" (plataforma de tienda online), con los subencargados Supabase, Inc. (base de datos, UE-Irlanda) y GitHub, Inc. (alojamiento web).")+
+  fila("Transferencias internacionales","No previstas. Si algún proveedor accede desde fuera del EEE, se ampara en cláusulas contractuales tipo o en el Marco de Privacidad de Datos UE-EE. UU.")+
+  fila("Plazo de conservación","Durante la relación comercial y, después, durante los plazos de prescripción legales: 6 años (art. 30 Código de Comercio) y 4 años (obligaciones tributarias). Después se suprimen.")+
+  fila("Medidas de seguridad","Las descritas en el Anexo del contrato de encargado del tratamiento: cifrado HTTPS, control de acceso por comercio en la base de datos, cuentas creadas solo por el administrador, verificación en dos pasos y copias de seguridad.")+
+  '</table>'+
+  '<h2>Actividad: usuarios del panel de gestión</h2><table style="width:100%;border-collapse:collapse">'+
+  fila("Finalidad","Permitir el acceso del personal del comercio al panel «Mi tienda».")+fila("Base legal","Interés legítimo en la gestión del negocio (art. 6.1.f RGPD).")+
+  fila("Datos","Correo electrónico y contraseña (cifrada).")+fila("Conservación","Mientras el usuario tenga acceso; se suprime al retirarlo.")+'</table>';}
+
+function docLegales(c){var Cprev=C,Pprev=S.products;C=c;S.products=[];var h='<h1>TEXTOS LEGALES DE LA TIENDA ONLINE</h1><p style="text-align:center">'+esc(c.nombre||"")+' · '+esc(c.url||"")+' · Versión publicada a '+fechaLarga(hoyISO())+'</p>';
+  try{["aviso","condiciones","privacidad","cookies"].forEach(function(k){h+='<h2>'+LEGAL[k].t+'</h2>'+LEGAL[k].h().replace(/<h4>/g,"<h3>").replace(/<\/h4>/g,"</h3>").replace(/class="fi-pend"/g,'class="pend"');});}finally{C=Cprev;S.products=Pprev;}
+  return h;}
+function htmlDoc(tipo){var d=S.doc,c=d.com,a=d.acuerdo,p=d.plat;
+  return tipo==="servicio"?docServicio(c,a,p):tipo==="encargado"?docEncargado(c,a,p):tipo==="registro"?docRegistro(c,a,p):docLegales(c);}
+var DOC_CSS='body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.45;color:#111;max-width:760px;margin:0 auto;padding:24px}h1{font-size:15pt;text-align:center;margin:0 0 6px}h1 small{font-size:10pt;font-weight:normal}h2{font-size:12pt;margin:18px 0 6px;border-bottom:1px solid #ccc;padding-bottom:2px}h3{font-size:11pt;margin:12px 0 4px}p{text-align:justify;margin:0 0 8px}ul{margin:0 0 8px}.pend{background:#ffeb3b;font-weight:bold}@media print{body{padding:0}.pend{background:#ffeb3b !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+function nombreDoc(tipo){var t=DOC_TIPOS.filter(function(x){return x.id===tipo;})[0];return (t?t.t:tipo)+" - "+(S.doc.com.nombre||"");}
+function descargarWord(tipo){var titulo=nombreDoc(tipo);
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+esc(titulo)+'</title><style>'+DOC_CSS+'</style></head><body>'+htmlDoc(tipo)+'</body></html>';
+  descargarTexto("﻿"+html,titulo.replace(/[\\/:*?"<>|]/g,"")+".doc","application/msword");}
+function imprimirDoc(tipo){var w=window.open("","_blank");if(!w){toast("Permite las ventanas emergentes para imprimir");return;}
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>'+esc(nombreDoc(tipo))+'</title><style>'+DOC_CSS+'</style></head><body>'+htmlDoc(tipo)+'<script>setTimeout(function(){window.print();},300);<\/script></body></html>');w.document.close();}
+function verDoc(tipo){var m=document.createElement("div");m.className="fi-modal fi-docmodal";
+  m.innerHTML='<div class="fi-docwrap"><div class="fi-docbar"><b>'+esc(nombreDoc(tipo))+'</b><div class="fi-btnrow"><button class="fi-edit" data-dw="1">⬇ Word</button><button class="fi-edit" data-dp="1">🖨 PDF / Imprimir</button><button class="fi-edit" data-dx="1">✕</button></div></div><div class="fi-docpaper">'+htmlDoc(tipo)+'</div></div>';
+  m.onclick=function(e){if(e.target===m||e.target.closest("[data-dx]"))m.remove();else if(e.target.closest("[data-dw]"))descargarWord(tipo);else if(e.target.closest("[data-dp]"))imprimirDoc(tipo);};
+  document.body.appendChild(m);}
+async function verFirmado(tipo){var d=S.doc.docs[tipo];if(!d||!d.archivo)return;
+  var w=window.open("","_blank");var r=await sb.storage.from("documentos").createSignedUrl(d.archivo,600);
+  if(r.error){if(w)w.close();toast("No se pudo abrir el PDF: "+r.error.message);return;}
+  if(w)w.location.href=r.data.signedUrl;else location.href=r.data.signedUrl;}
+function subirFirmado(tipo){var t=DOC_TIPOS.filter(function(x){return x.id===tipo;})[0];var prev=S.doc.docs[tipo];
+  var m=modal('<h2>Subir versión firmada</h2><p class="fi-hint" style="margin:0 0 10px">'+esc(t.t)+'<br>'+esc(S.doc.com.nombre)+'</p>'+
+    (prev&&prev.archivo?'<p class="fi-err" style="display:block">Sustituirá al PDF firmado actual ('+esc(prev.nombre_archivo||"")+'). El anterior se conserva como copia interna.</p>':'')+
+    '<label class="fi-l">Documento definitivo en PDF (máx. 10 MB)</label><input id="sf_file" type="file" accept="application/pdf">'+
+    '<label class="fi-l">Fecha de firma</label><input id="sf_fecha" type="date" value="'+hoyISO()+'">'+
+    '<div class="acts" style="margin-top:12px"><span></span><div class="fi-btnrow"><button class="fi-edit" id="sf_c">Cancelar</button><button class="fi-newbtn" id="sf_ok">Subir PDF</button></div></div>');
+  m.querySelector("#sf_c").onclick=function(){m.remove();};
+  m.querySelector("#sf_ok").onclick=async function(){var b=this,f=m.querySelector("#sf_file").files[0],fecha=m.querySelector("#sf_fecha").value||null;
+    if(!f){toast("Elige el PDF firmado");return;}if(f.type!=="application/pdf"&&!/\.pdf$/i.test(f.name)){toast("El archivo debe ser un PDF");return;}if(f.size>10485760){toast("El PDF supera los 10 MB");return;}
+    b.disabled=true;b.textContent="Subiendo…";var ruta=S.doc.cid+"/"+tipo+"-"+Date.now()+".pdf";
+    var up=await sb.storage.from("documentos").upload(ruta,f,{contentType:"application/pdf",upsert:false});
+    if(up.error){toast("Error al subir: "+up.error.message);b.disabled=false;b.textContent="Subir PDF";return;}
+    var row={comercio_id:S.doc.cid,tipo:tipo,archivo:ruta,nombre_archivo:f.name,firmado:fecha,subido:new Date().toISOString()};
+    var r=await sb.from("documentos").upsert(row).select().single();
+    if(r.error){toast("Error al registrar el documento: "+r.error.message);b.disabled=false;b.textContent="Subir PDF";return;}
+    S.doc.docs[tipo]=r.data;m.remove();render();toast("Versión firmada guardada");};}
+async function volverPlantilla(tipo){if(!confirmarSuave("¿Volver a mostrar este documento como plantilla? El PDF firmado se conserva guardado."))return;
+  var r=await sb.from("documentos").delete().eq("comercio_id",S.doc.cid).eq("tipo",tipo).select();if(r.error){toast("No se pudo cambiar");return;}delete S.doc.docs[tipo];render();}
+function confirmarSuave(t){return window.confirm(t);}
+function pendientes(c,p){var f=[];if(!c.titular)f.push("titular");if(!c.nif)f.push("NIF/CIF");if(!c.domicilio)f.push("domicilio");if(!c.email)f.push("email");if(!c.telefono)f.push("teléfono");
+  var g=[];if(!p.titular)g.push("tu nombre");if(!p.nif)g.push("tu NIF");if(!p.domicilio)g.push("tu domicilio");return {com:f,plat:g};}
+function documentosHTML(){var d=S.doc;if(d.cargando)return '<p class="fi-empty">Cargando documentación…</p>';
+  var c=d.com,a=d.acuerdo||{},p=d.plat||{},pd=pendientes(c,p);
+  var aviso=(pd.com.length||pd.plat.length)?'<div class="fi-card2" style="background:#fff8e1"><b>⚠️ Faltan datos</b><p class="fi-sub" style="margin:4px 0 0">'+(pd.com.length?'Del comercio: '+pd.com.join(", ")+' (se rellenan en su «Mi comercio»). ':'')+(pd.plat.length?'Tuyos: '+pd.plat.join(", ")+' (botón «Mis datos de prestador»).':'')+' Mientras tanto aparecen resaltados en amarillo en los documentos.</p></div>':'';
+  var econ='<div class="fi-card2"><h3>Condiciones económicas con '+esc(c.nombre)+'</h3><p class="fi-sub">Se usan en el contrato de prestación de servicios. Vacío = valor por defecto de tus datos de prestador ('+numES(p.comision||0)+' % · '+numES(p.cuota||0)+' €/mes).</p>'+
+    '<div class="fi-form-row2"><div><label class="fi-l">Comisión sobre pedidos (%)</label><input id="ac_com" type="number" step="0.1" min="0" value="'+(a.comision==null?"":a.comision)+'"></div><div><label class="fi-l">Cuota mensual (€)</label><input id="ac_cuo" type="number" step="0.01" min="0" value="'+(a.cuota==null?"":a.cuota)+'"></div></div>'+
+    '<label class="fi-l">Fecha de inicio del servicio</label><input id="ac_ini" type="date" value="'+esc(a.inicio||"")+'"><label class="fi-l">Condiciones particulares (opcional)</label><input id="ac_obs" value="'+esc(a.observaciones||"")+'" placeholder="Ej. Primer mes gratuito"><button class="fi-edit" data-acsave="1">Guardar condiciones</button></div>';
+  var lista=DOC_TIPOS.map(function(t){var f=d.docs[t.id],firm=f&&f.archivo;
+    return '<div class="fi-card2 fi-docitem"><div class="fi-docicon">'+(firm?'✅':'📄')+'</div><div class="inf"><b>'+esc(t.t)+'</b><span class="fi-tag '+(firm?'on">'+(t.firma?'Firmado':'Definitivo')+(f.firmado?' · '+fechaLarga(f.firmado):''):'off" style="background:#fff3e0;color:#c26a00">Plantilla')+'</span><small>'+esc(t.d)+'</small>'+(firm?'<small>PDF: '+esc(f.nombre_archivo||"")+'</small>':'')+'</div>'+
+      '<div class="fi-comacts">'+(firm?'<button class="fi-newbtn" data-dvf="'+t.id+'">👁 Ver PDF firmado</button><button class="fi-edit" data-dup="'+t.id+'">⬆ Sustituir PDF</button><button class="fi-edit" data-dview="'+t.id+'">Plantilla</button><button class="fi-del" data-dback="'+t.id+'">Volver a plantilla</button>':
+        '<button class="fi-edit" data-dview="'+t.id+'">👁 Ver</button><button class="fi-edit" data-dword="'+t.id+'">⬇ Word</button><button class="fi-edit" data-dprint="'+t.id+'">🖨 PDF</button><button class="fi-newbtn" data-dup="'+t.id+'">⬆ Subir '+(t.firma?'firmado':'definitivo')+' (PDF)</button>')+'</div></div>';}).join("");
+  return '<button class="fi-back" data-docsback="1">← Volver a comercios</button><h2 class="fi-t">📄 Documentación · '+esc(c.nombre)+'</h2>'+aviso+lista+econ;}
+function showPrestador(){var p=(S.doc&&S.doc.plat)||S._plat||{};
+  var m=modal('<h2>Mis datos de prestador</h2><p class="fi-hint" style="margin:0 0 10px">Aparecen como PRESTADOR / ENCARGADO en los contratos de todos los comercios.</p>'+
+    '<label class="fi-l">Nombre y apellidos o razón social</label><input id="pr_tit" value="'+esc(p.titular||"")+'"><label class="fi-l">NIF</label><input id="pr_nif" value="'+esc(p.nif||"")+'">'+
+    '<label class="fi-l">Domicilio</label><input id="pr_dom" value="'+esc(p.domicilio||"")+'"><div class="fi-form-row2"><div><label class="fi-l">Email</label><input id="pr_mail" value="'+esc(p.email||"")+'"></div><div><label class="fi-l">Teléfono</label><input id="pr_tel" value="'+esc(p.telefono||"")+'"></div></div>'+
+    '<div class="fi-form-row2"><div><label class="fi-l">Comisión por defecto (%)</label><input id="pr_com" type="number" step="0.1" min="0" value="'+(p.comision==null?"":p.comision)+'"></div><div><label class="fi-l">Cuota por defecto (€/mes)</label><input id="pr_cuo" type="number" step="0.01" min="0" value="'+(p.cuota==null?"":p.cuota)+'"></div></div>'+
+    '<div class="acts" style="margin-top:12px"><span></span><div class="fi-btnrow"><button class="fi-edit" id="pr_c">Cancelar</button><button class="fi-newbtn" id="pr_ok">Guardar</button></div></div>');
+  var g=function(id){return m.querySelector(id).value.trim();},n=function(id){var v=g(id);return v===""?null:Number(v.replace(",","."));};
+  if(!S.doc&&!S._plat)sb.from("plataforma").select("*").eq("id",1).maybeSingle().then(function(r){if(r.data){S._plat=r.data;m.remove();showPrestador();}});
+  m.querySelector("#pr_c").onclick=function(){m.remove();};
+  m.querySelector("#pr_ok").onclick=async function(){var b=this;b.disabled=true;
+    var row={id:1,titular:g("#pr_tit"),nif:g("#pr_nif"),domicilio:g("#pr_dom"),email:g("#pr_mail"),telefono:g("#pr_tel"),comision:n("#pr_com"),cuota:n("#pr_cuo"),actualizado:new Date().toISOString()};
+    var r=await sb.from("plataforma").upsert(row).select().single();if(r.error){toast("No se pudo guardar: "+r.error.message);b.disabled=false;return;}
+    S._plat=r.data;if(S.doc)S.doc.plat=r.data;m.remove();render();toast("Datos de prestador guardados");};}
+function bindDocs(){
+  app.querySelectorAll("[data-docs]").forEach(function(b){b.onclick=function(){abrirDocs(b.getAttribute("data-docs"));};});
+  var pb=app.querySelector("[data-prest]");if(pb)pb.onclick=showPrestador;
+  var bk=app.querySelector("[data-docsback]");if(bk)bk.onclick=function(){S.doc=null;render();};
+  if(!S.doc||S.doc.cargando)return;
+  var on=function(sel,fn){app.querySelectorAll("["+sel+"]").forEach(function(b){b.onclick=function(){fn(b.getAttribute(sel));};});};
+  on("data-dview",verDoc);on("data-dword",descargarWord);on("data-dprint",imprimirDoc);on("data-dup",subirFirmado);on("data-dvf",verFirmado);on("data-dback",volverPlantilla);
+  var as=app.querySelector("[data-acsave]");if(as)as.onclick=async function(){var v=function(id){var x=document.getElementById(id).value.trim();return x;},n=function(id){var x=v(id);return x===""?null:Number(x.replace(",","."));};
+    as.disabled=true;var row={comercio_id:S.doc.cid,comision:n("ac_com"),cuota:n("ac_cuo"),inicio:v("ac_ini")||null,observaciones:v("ac_obs")||null,actualizado:new Date().toISOString()};
+    var r=await sb.from("acuerdos").upsert(row).select().single();if(r.error){toast("No se pudo guardar: "+r.error.message);as.disabled=false;return;}S.doc.acuerdo=r.data;render();toast("Condiciones guardadas");};
+}
+
 /* ============ EVENTOS ============ */
 function syncForm(){var f=S._f;if(!f)return;var g=function(id){return document.getElementById(id);};if(g("f_nombre"))f.nombre=g("f_nombre").value;if(g("f_desc"))f.desc=g("f_desc").value;if(g("f_precio"))f.precio=g("f_precio").value;if(g("f_unidad"))f.unidad=g("f_unidad").value;if(g("f_cat"))f.cat=g("f_cat").value;if(g("f_forma"))f.forma=g("f_forma").value;if(g("f_color"))f.color=g("f_color").value;}
 function updatePreview(){var f=S._f;if(!f)return;var prev=document.getElementById("f_prev");if(!prev)return;prev.src=f.img||artFor(f.nombre,f.cat,f.desc,{shape:f.forma,color:f.color});}
 function bind(){
-  bindSuper();bindMiComercio();pintarQRsPagina();
+  bindSuper();bindMiComercio();bindDocs();pintarQRsPagina();
   app.querySelectorAll("[data-view]").forEach(function(b){b.onclick=function(){S.view=b.getAttribute("data-view");S.screen="shop";S.editId=null;S.adding=false;S._f=null;if(S.view==="admin"&&S.user){cargarPedidos().then(render);return;}render();};});
   var home=app.querySelector('[data-act="home"]');if(home)home.onclick=function(){S.view="tienda";S.screen="shop";render();};
   app.querySelectorAll("[data-cat]").forEach(function(b){b.onclick=function(){S.cat=b.getAttribute("data-cat");render();};});
@@ -808,7 +978,7 @@ function bind(){
     render();ids.forEach(function(k){var el=document.getElementById(k);if(el&&v[k]!=null){el.value=v[k];el.dispatchEvent(new Event("input"));}});var oc=document.getElementById("c_ok");if(oc){oc.checked=okv;oc.dispatchEvent(new Event("change"));}};});
   // login
   var lg=app.querySelector("[data-login]");if(lg)lg.onclick=async function(){var em=document.getElementById("l_email").value.trim();var pw=document.getElementById("l_pass").value;var msg=document.getElementById("l_msg");if(!configurado){msg.textContent="Configura Supabase primero.";return;}lg.disabled=true;lg.textContent="Entrando…";var r=await sb.auth.signInWithPassword({email:em,password:pw});if(r.error){msg.textContent="No se pudo entrar: "+r.error.message;lg.disabled=false;lg.textContent="Entrar";return;}S.user=r.data.user;await cargarPermisos();if(S.esMiembro){await Promise.all([cargarPedidos(),cargarProductos(),S.esSuper?cargarComercios():null]);}render();};
-  app.querySelectorAll("[data-atab]").forEach(function(b){b.onclick=function(){if(S.adminTab==="comercio")leerMiComercio();S.adminTab=b.getAttribute("data-atab");S.pedidoId=null;render();};});
+  app.querySelectorAll("[data-atab]").forEach(function(b){b.onclick=function(){if(S.adminTab==="comercio")leerMiComercio();S.adminTab=b.getAttribute("data-atab");S.pedidoId=null;S.doc=null;render();};});
   app.querySelectorAll("[data-ped]").forEach(function(c){
     c.onclick=function(e){if(c._swiped){c._swiped=false;return;}if(e.target.closest("[data-send]")||e.target.closest("a"))return;S.pedidoId=c.getAttribute("data-ped");render();window.scrollTo(0,0);};
     var x0=0,y0=0,dx=0,mode=null,wrap=c.parentNode;
