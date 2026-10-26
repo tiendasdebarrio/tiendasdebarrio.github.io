@@ -395,6 +395,7 @@ function render(){setTimeout(fijarAltoCabecera,0);
   h+=footer();
   if(S.view==="tienda"&&cartCount()>0&&S.screen==="shop")h+=cartbar();
   app.innerHTML=h;bind();
+  var pantalla=S.view+"|"+S.screen;if(S._pantalla!==pantalla){if(S._pantalla&&S.screen==="checkout")window.scrollTo(0,0);S._pantalla=pantalla;}
 }
 function header(){return '<div class="fi-header"><div class="fi-brand" data-act="home"><div class="fi-mark"'+(C&&!C.logo&&C.slug!=="insha"?' style="background:var(--verde);color:#fff;font-weight:800"':'')+'>'+(C&&C.logo?'<img src="'+esc(C.logo)+'" alt="">':C&&C.slug!=="insha"?inicial(C.nombre):'<svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><circle cx="21" cy="27" r="9" fill="#e23b30"/><circle cx="33" cy="22" r="10" fill="#ffd21a"/><circle cx="45" cy="27" r="9" fill="#ff8c1a"/><circle cx="27" cy="32" r="7" fill="#7cbf3f"/><circle cx="40" cy="33" r="7" fill="#9c54c4"/><path d="M31 12c2-4 6-5 9-4-1 3-5 5-9 4z" fill="#5aa83a"/><path d="M8 33h48l-5 21a3 3 0 0 1-3 2H16a3 3 0 0 1-3-2z" fill="#d6a45e"/><path d="M8 33h48v5H8z" fill="#b07b3f"/><path d="M22 40v13M32 40v13M42 40v13" stroke="#a06f30" stroke-width="2.4" stroke-linecap="round"/></svg>')+'</div><div><b>'+esc(C?C.nombre:"")+'</b><span>'+esc((C&&C.localidad)||"")+'</span></div></div><div class="fi-switch"><button data-view="tienda" class="'+(S.view==="tienda"?"on":"")+'">Comprar</button><button data-view="admin" class="'+(S.view==="admin"?"on":"")+'">Mi tienda</button></div></div>';}
 function shop(){
