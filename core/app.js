@@ -439,7 +439,7 @@ function admin(){
       '<div class="fi-pfilter"><button data-pf="pend" class="'+(pf==="pend"?"on":"")+'">Pendientes ('+nPend+')</button><button data-pf="env" class="'+(pf==="env"?"on":"")+'">Enviados ('+nEnv+')</button><button data-pf="todos" class="'+(pf==="todos"?"on":"")+'">Todos ('+todos.length+')</button></div>'+
       (list?'<p class="fi-swipehint">Desliza un pedido hacia la izquierda para marcarlo como enviado.</p>'+list:'<p class="fi-empty">'+(todos.length?(pf==="env"?'No hay pedidos enviados.':pf==="pend"?'No hay pedidos pendientes. 🎉':'Todavía no hay pedidos.'):'Todavía no hay pedidos.')+'</p>');
   }else if(tab==="comercio"){body=miComercioHTML();
-  }else if(tab==="comercios"&&S.esSuper){body=S.doc?documentosHTML():comerciosHTML();
+  }else if(tab==="comercios"&&S.esSuper){body=S.doc?documentosHTML():S.eco?ecoHTML():comerciosHTML();
   }else{
     var q=norm(S.adminQ);
     var vis=S.products.filter(function(p){return !q||textoBusqueda(p).indexOf(q)>=0;});
@@ -723,15 +723,17 @@ function pintarQRsPagina(){app.querySelectorAll("canvas[data-qr]").forEach(funct
 /* ============ SUPERADMINISTRADOR: todos los comercios ============ */
 async function cargarComercios(){if(!S.esSuper)return;
   var r=await sb.from("comercios").select("id,slug,nombre,url,logo,color,activo,creado").order("creado");if(!r.error)S.comercios=r.data||[];
-  var u=await sb.from("comercio_usuarios").select("comercio_id,email");S.cuUsers={};(u.data||[]).forEach(function(x){(S.cuUsers[x.comercio_id]=S.cuUsers[x.comercio_id]||[]).push(x.email);});}
+  var u=await sb.from("comercio_usuarios").select("comercio_id,email");S.cuUsers={};(u.data||[]).forEach(function(x){(S.cuUsers[x.comercio_id]=S.cuUsers[x.comercio_id]||[]).push(x.email);});
+  try{await cargarResumenEco();}catch(e){console.error(e);}}
 function superBar(){if(!S.esSuper||!(S.comercios||[]).length)return "";
   return '<div class="fi-view-inner fi-superbar">🛡️ Superadministrador · gestionando<select id="sw_com">'+S.comercios.map(function(c){return '<option value="'+esc(c.slug)+'"'+(c.slug===C.slug?' selected':'')+'>'+esc(c.nombre)+'</option>';}).join("")+'</select></div>';}
+function ecoLinea(c){var l=S.ecoRes&&S.ecoRes[c.id];if(!l)return "";return '<div class="fi-ecoline">💶 Este mes: <b>'+money(l.fact)+'</b> facturados ('+l.n+' ped.) · para ti <b>'+money(l.total)+'</b>'+(l.cuota==null?' <small>(cuota fija pendiente)</small>':'')+'</div>';}
 function inicial(n){return esc(String(n||"?").trim().charAt(0).toUpperCase());}
 function comerciosHTML(){var l=(S.comercios||[]).map(function(c){var us=(S.cuUsers||{})[c.id]||[];
   return '<div class="fi-card2"><div class="fi-com"><div class="lg" style="background:'+esc(c.color||"#2f7d22")+'">'+(c.logo?'<img src="'+esc(c.logo)+'" alt="">':inicial(c.nombre))+'</div><div class="inf"><b>'+esc(c.nombre)+'</b><span class="fi-tag '+(c.activo?'on">Activa':'off">Desactivada')+'</span>'+
     '<small><a href="'+esc(urlComercio(c))+'" target="_blank" rel="noopener">'+esc(urlComercio(c))+'</a></small>'+
-    '<div class="users">Accesos: '+(us.length?us.map(function(e){return '<span>'+esc(e)+'<button data-cupass="'+esc(c.id)+'|'+esc(e)+'" title="Cambiar contraseña">🔑</button><button data-cudel="'+esc(c.id)+'|'+esc(e)+'" title="Quitar acceso">✕</button></span>';}).join(""):'<i>ninguno</i>')+'</div></div></div>'+
-    '<div class="fi-comacts"><button class="fi-newbtn" data-docs="'+esc(c.id)+'">📄 Documentos</button><a class="fi-edit" href="?c='+encodeURIComponent(c.slug)+'#admin">⚙️ Gestionar</a><button class="fi-edit" data-cuadd="'+esc(c.id)+'">+ Acceso</button><button class="fi-edit" data-dlindex="'+esc(c.slug)+'">⬇ index.html</button><button class="fi-edit" data-dlqr="'+esc(c.slug)+'">⬇ QR</button><button class="fi-edit" data-dlcartel="'+esc(c.slug)+'">⬇ Cartel</button><button class="fi-edit" data-curl="'+esc(c.id)+'">🔗 Dirección</button><button class="'+(c.activo?'fi-del':'fi-edit')+'" data-cuact="'+esc(c.id)+'">'+(c.activo?'Desactivar':'Activar')+'</button></div></div>';}).join("");
+    '<div class="users">Accesos: '+(us.length?us.map(function(e){return '<span>'+esc(e)+'<button data-cupass="'+esc(c.id)+'|'+esc(e)+'" title="Cambiar contraseña">🔑</button><button data-cudel="'+esc(c.id)+'|'+esc(e)+'" title="Quitar acceso">✕</button></span>';}).join(""):'<i>ninguno</i>')+'</div>'+ecoLinea(c)+'</div></div>'+
+    '<div class="fi-comacts"><button class="fi-newbtn" data-docs="'+esc(c.id)+'">📄 Documentos</button><button class="fi-newbtn" data-eco="'+esc(c.id)+'">💶 Economía</button><a class="fi-edit" href="?c='+encodeURIComponent(c.slug)+'#admin">⚙️ Gestionar</a><button class="fi-edit" data-cuadd="'+esc(c.id)+'">+ Acceso</button><button class="fi-edit" data-dlindex="'+esc(c.slug)+'">⬇ index.html</button><button class="fi-edit" data-dlqr="'+esc(c.slug)+'">⬇ QR</button><button class="fi-edit" data-dlcartel="'+esc(c.slug)+'">⬇ Cartel</button><button class="fi-edit" data-curl="'+esc(c.id)+'">🔗 Dirección</button><button class="'+(c.activo?'fi-del':'fi-edit')+'" data-cuact="'+esc(c.id)+'">'+(c.activo?'Desactivar':'Activar')+'</button></div></div>';}).join("");
   return '<div class="fi-tabbar"><span>'+(S.comercios||[]).length+' comercios en la plataforma</span><div class="fi-btnrow"><button class="fi-edit" data-prest="1">🧾 Mis datos de prestador</button><button class="fi-newbtn" data-newcom="1">+ Nuevo comercio</button></div></div>'+l;}
 function indexHTML(c){return '<!DOCTYPE html>\n<html lang="es">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">\n<title>'+esc(c.nombre)+' — Tienda online</title>\n<style>.fi-load{font-family:system-ui,sans-serif;text-align:center;color:#999;padding:40px}</style>\n</head>\n<body>\n<div id="app"><div class="fi-load">Cargando tienda…</div></div>\n<script>\nwindow.COMERCIO = "'+c.slug+'";\n(function () {\n  var B = "'+CORE_URL+'";\n  fetch(B + "version.json?t=" + Date.now(), { cache: "no-store" })\n    .then(function (r) { return r.json(); })\n    .catch(function () { return { v: Date.now() }; })\n    .then(function (j) {\n      var l = document.createElement("link"); l.rel = "stylesheet"; l.href = B + "app.css?v=" + j.v; document.head.appendChild(l);\n      var s = document.createElement("script"); s.type = "module"; s.src = B + "app.js?v=" + j.v; document.body.appendChild(s);\n    });\n})();\n<\/script>\n</body>\n</html>\n';}
 function descargarTexto(txt,nombre,tipo){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:tipo||"text/html"}));a.download=nombre;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);}
@@ -854,14 +856,17 @@ async function abrirDocs(cid){
   render();window.scrollTo(0,0);
 }
 function condicionesEconomicas(a,p){
-  var com=(a&&a.comision!=null)?Number(a.comision):(p&&p.comision!=null?Number(p.comision):null);
-  var cuo=(a&&a.cuota!=null)?Number(a.cuota):(p&&p.cuota!=null?Number(p.cuota):null);
-  if(com==null&&cuo==null)return '<span class="pend">[CONDICIONES ECONÓMICAS]</span>';
-  var partes=[];
-  if(cuo>0)partes.push("una cuota fija de <b>"+fmtEur(cuo)+" al mes</b>");
-  if(com>0)partes.push("una comisión del <b>"+numES(com)+" %</b> sobre el importe total (IVA incluido) de los pedidos recibidos a través de la tienda online y no anulados");
+  var tr=tramosDe(a,p),cuo=cuotaDe(a,p),partes=[];
+  partes.push(cuo==null?'una cuota fija mensual de <span class="pend">[IMPORTE PENDIENTE DE DEFINIR]</span> €':(cuo>0?"una cuota fija de <b>"+fmtEur(cuo)+" al mes</b>":null));
+  partes=partes.filter(Boolean);
+  var tx="";
+  if(tr.length===1&&tr[0].desde===0&&tr[0].hasta==null){if(tr[0].pct>0)partes.push("una comisión del <b>"+numES(tr[0].pct)+" %</b> sobre la facturación mensual");}
+  else if(tr.length){partes.push("una comisión sobre la facturación mensual calculada por tramos según la tabla siguiente");
+    tx='<table style="border-collapse:collapse;margin:6px 0 10px"><tr><th style="border:1px solid #999;padding:4px 8px;background:#f2f2f2">Facturación mensual</th><th style="border:1px solid #999;padding:4px 8px;background:#f2f2f2">Comisión</th></tr>'+tr.map(function(t){return '<tr><td style="border:1px solid #999;padding:4px 8px">'+txtTramo(t)+'</td><td style="border:1px solid #999;padding:4px 8px;text-align:right">'+numES(t.pct)+' %</td></tr>';}).join("")+'</table>'+
+      '<p>'+(((a&&a.modo_tramos)||"marginal")==="global"?"El porcentaje del tramo alcanzado en el mes se aplica a la totalidad de la facturación de ese mes.":"Los tramos son escalonados: cada parte de la facturación mensual tributa al porcentaje de su tramo, de forma que el porcentaje de un tramo superior solo se aplica a la parte que lo excede.")+'</p>';}
   if(!partes.length)return "El servicio se presta <b>sin coste</b> para el CLIENTE mientras las partes no acuerden otra cosa por escrito.";
-  return "Como contraprestación, el CLIENTE abonará al PRESTADOR "+partes.join(" más ")+". Estos importes no incluyen el IVA ni otros impuestos aplicables, que se añadirán en la factura.";
+  var baseTxt=((a&&a.base)==="enviados")?"los pedidos recibidos a través de la tienda online, entregados al cliente y no anulados":"los pedidos recibidos a través de la tienda online y no anulados";
+  return "Como contraprestación, el CLIENTE abonará al PRESTADOR "+partes.join(" más ")+". Se entiende por facturación mensual la suma de los importes totales (IVA incluido) de "+baseTxt+" en cada mes natural. Estos importes no incluyen el IVA ni otros impuestos aplicables a la factura del PRESTADOR, que se añadirán en ella."+(tx?"</p>"+tx+"<p>":"");
 }
 function firmasHTML(izq,der,nomIzq,nomDer){return '<p style="margin-top:28px">Y en prueba de conformidad, ambas partes firman el presente documento por duplicado y a un solo efecto, en el lugar y fecha indicados en el encabezamiento.</p>'+
   '<table class="firmas" style="width:100%;margin-top:30px"><tr><td style="width:50%;vertical-align:bottom;padding-top:70px">______________________________<br><b>'+izq+'</b><br>'+nomIzq+'</td><td style="width:50%;vertical-align:bottom;padding-top:70px">______________________________<br><b>'+der+'</b><br>'+nomDer+'</td></tr></table>';}
@@ -964,9 +969,7 @@ function pendientes(c,p){var f=[];if(!c.titular)f.push("titular");if(!c.nif)f.pu
 function documentosHTML(){var d=S.doc;if(d.cargando)return '<p class="fi-empty">Cargando documentación…</p>';
   var c=d.com,a=d.acuerdo||{},p=d.plat||{},pd=pendientes(c,p);
   var aviso=(pd.com.length||pd.plat.length)?'<div class="fi-card2" style="background:#fff8e1"><b>⚠️ Faltan datos</b><p class="fi-sub" style="margin:4px 0 0">'+(pd.com.length?'Del comercio: '+pd.com.join(", ")+' (se rellenan en su «Mi comercio»). ':'')+(pd.plat.length?'Tuyos: '+pd.plat.join(", ")+' (botón «Mis datos de prestador»).':'')+' Mientras tanto aparecen resaltados en amarillo en los documentos.</p></div>':'';
-  var econ='<div class="fi-card2"><h3>Condiciones económicas con '+esc(c.nombre)+'</h3><p class="fi-sub">Se usan en el contrato de prestación de servicios. Vacío = valor por defecto de tus datos de prestador ('+numES(p.comision||0)+' % · '+numES(p.cuota||0)+' €/mes).</p>'+
-    '<div class="fi-form-row2"><div><label class="fi-l">Comisión sobre pedidos (%)</label><input id="ac_com" type="number" step="0.1" min="0" value="'+(a.comision==null?"":a.comision)+'"></div><div><label class="fi-l">Cuota mensual (€)</label><input id="ac_cuo" type="number" step="0.01" min="0" value="'+(a.cuota==null?"":a.cuota)+'"></div></div>'+
-    '<label class="fi-l">Fecha de inicio del servicio</label><input id="ac_ini" type="date" value="'+esc(a.inicio||"")+'"><label class="fi-l">Condiciones particulares (opcional)</label><input id="ac_obs" value="'+esc(a.observaciones||"")+'" placeholder="Ej. Primer mes gratuito"><button class="fi-edit" data-acsave="1">Guardar condiciones</button></div>';
+  var econ='<div class="fi-card2"><h3>Condiciones económicas</h3><p class="fi-sub" style="margin-bottom:8px">'+(function(){var tr=tramosDe(a,p),cu=cuotaDe(a,p);return 'Cuota fija: '+(cu==null?'pendiente':money(cu)+'/mes')+' · Comisión: '+(tr.length?tr.map(function(t){return txtTramo(t)+' → '+numES(t.pct)+' %';}).join("; "):'sin definir')+(a.inicio?' · Inicio: '+fechaLarga(a.inicio):'');})()+'</p><button class="fi-edit" data-eco="'+esc(c.id)+'">💶 Editar en Economía</button></div>';
   var lista=DOC_TIPOS.map(function(t){var f=d.docs[t.id],firm=f&&f.archivo;
     return '<div class="fi-card2 fi-docitem"><div class="fi-docicon">'+(firm?'✅':'📄')+'</div><div class="inf"><b>'+esc(t.t)+'</b><span class="fi-tag '+(firm?'on">'+(t.firma?'Firmado':'Definitivo')+(f.firmado?' · '+fechaLarga(f.firmado):''):'off" style="background:#fff3e0;color:#c26a00">Plantilla')+'</span><small>'+esc(t.d)+'</small>'+(firm?'<small>PDF: '+esc(f.nombre_archivo||"")+'</small>':'')+'</div>'+
       '<div class="fi-comacts">'+(firm?'<button class="fi-newbtn" data-dvf="'+t.id+'">👁 Ver PDF firmado</button><button class="fi-edit" data-dup="'+t.id+'">⬆ Sustituir PDF</button><button class="fi-edit" data-dview="'+t.id+'">Plantilla</button><button class="fi-del" data-dback="'+t.id+'">Volver a plantilla</button>':
@@ -997,11 +1000,91 @@ function bindDocs(){
     var r=await sb.from("acuerdos").upsert(row).select().single();if(r.error){toast("No se pudo guardar: "+r.error.message);as.disabled=false;return;}S.doc.acuerdo=r.data;render();toast("Condiciones guardadas");};
 }
 
+
+/* ============ ECONOMÍA: facturación de cada comercio y comisión del prestador (solo superadministrador) ============ */
+function tramosDe(a,p){var t=(a&&Array.isArray(a.tramos)&&a.tramos.length)?a.tramos:null;
+  if(t)return t.map(function(x){return {desde:Number(x.desde||0),hasta:(x.hasta===null||x.hasta===""||x.hasta==null)?null:Number(x.hasta),pct:Number(x.pct||0)};}).sort(function(x,y){return x.desde-y.desde;});
+  var com=(a&&a.comision!=null)?Number(a.comision):(p&&p.comision!=null?Number(p.comision):null);
+  return com!=null?[{desde:0,hasta:null,pct:com}]:[];}
+function cuotaDe(a,p){return (a&&a.cuota!=null)?Number(a.cuota):(p&&p.cuota!=null?Number(p.cuota):null);}
+/* modo "marginal": cada euro paga el % de su tramo · modo "global": toda la facturación paga el % del tramo alcanzado */
+function calcComision(base,tramos,modo){var det=[],total=0;base=Math.max(0,Number(base)||0);
+  if(!tramos.length)return {total:0,det:det};
+  if(modo==="global"){var t=tramos[0];tramos.forEach(function(x){if(base>=x.desde)t=x;});total=base*t.pct/100;det.push({t:t,parte:base,imp:total,activo:true});return {total:total,det:det};}
+  tramos.forEach(function(x){var tope=x.hasta==null?Infinity:x.hasta,parte=Math.max(0,Math.min(base,tope)-x.desde),imp=parte*x.pct/100;total+=imp;det.push({t:x,parte:parte,imp:imp,activo:parte>0});});
+  return {total:total,det:det};}
+function txtTramo(t){return t.hasta==null?"Más de "+fmtEur(t.desde):(t.desde>0?"De "+fmtEur(t.desde)+" a "+fmtEur(t.hasta):"Hasta "+fmtEur(t.hasta));}
+function huecosTramos(tr){var av=[];for(var i=1;i<tr.length;i++){var prev=tr[i-1];if(prev.hasta==null)av.push("hay un tramo sin límite antes de otro");else if(tr[i].desde>prev.hasta)av.push("hueco entre "+fmtEur(prev.hasta)+" y "+fmtEur(tr[i].desde)+" (al 0 %)");else if(tr[i].desde<prev.hasta)av.push("tramos solapados en "+fmtEur(tr[i].desde));}
+  if(tr.length&&tr[0].desde>0)av.push("de 0 € a "+fmtEur(tr[0].desde)+" no hay comisión");if(tr.length&&tr[tr.length-1].hasta!=null)av.push("por encima de "+fmtEur(tr[tr.length-1].hasta)+" no hay comisión");return av;}
+function mesDe(iso){var d=new Date(iso);return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2);}
+function nombreMes(m){var p=m.split("-");var t=new Date(+p[0],+p[1]-1,15).toLocaleDateString("es-ES",{month:"long",year:"numeric"});return t.charAt(0).toUpperCase()+t.slice(1);}
+function mesesAtras(n){var r=[],d=new Date();d.setDate(1);for(var i=0;i<n;i++){r.push(d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2));d.setMonth(d.getMonth()-1);}return r;}
+function liquidacion(pedidos,a,p,mes){var base=(a&&a.base)||"todos";
+  var ps=pedidos.filter(function(o){return mesDe(o.creado)===mes&&(base!=="enviados"||o.enviado_at);});
+  var fact=ps.reduce(function(s,o){return s+Number(o.total||0);},0),tr=tramosDe(a,p),c=calcComision(fact,tr,(a&&a.modo_tramos)||"marginal"),cuo=cuotaDe(a,p);
+  return {mes:mes,n:ps.length,fact:fact,com:c.total,det:c.det,cuota:cuo,total:c.total+(cuo||0)};}
+
+async function abrirEco(cid){S.eco={cargando:true,cid:cid};S.doc=null;render();
+  var desde=new Date();desde.setDate(1);desde.setMonth(desde.getMonth()-11);desde.setHours(0,0,0,0);
+  var r=await Promise.all([sb.from("comercios").select("id,nombre,url").eq("id",cid).maybeSingle(),sb.from("acuerdos").select("*").eq("comercio_id",cid).maybeSingle(),sb.from("plataforma").select("*").eq("id",1).maybeSingle(),
+    sb.from("pedidos").select("total,creado,enviado_at").eq("comercio_id",cid).gte("creado",desde.toISOString())]);
+  if(r[0].error||!r[0].data){toast("No se pudo cargar el comercio");S.eco=null;render();return;}
+  var a=r[1].data||{comercio_id:cid};S.eco={cid:cid,com:r[0].data,acuerdo:a,plat:r[2].data||{},pedidos:r[3].data||[],mes:mesesAtras(1)[0],
+    form:{cuota:a.cuota==null?"":a.cuota,modo:a.modo_tramos||"marginal",base:a.base||"todos",inicio:a.inicio||"",obs:a.observaciones||"",tramos:(Array.isArray(a.tramos)?a.tramos:[]).map(function(t){return {desde:t.desde,hasta:t.hasta==null?"":t.hasta,pct:t.pct};})}};
+  render();window.scrollTo(0,0);}
+function ecoHTML(){var e=S.eco;if(e.cargando)return '<p class="fi-empty">Cargando datos económicos…</p>';
+  var a=e.acuerdo,p=e.plat,f=e.form,meses=mesesAtras(12);
+  var liqs=meses.map(function(m){return liquidacion(e.pedidos,a,p,m);}),sel=liquidacion(e.pedidos,a,p,e.mes);
+  var tr=tramosDe(a,p),av=huecosTramos(tr),cuo=cuotaDe(a,p);
+  var resumen='<div class="fi-ecokpis"><div><small>Facturación '+esc(nombreMes(e.mes).toLowerCase())+'</small><b>'+money(sel.fact)+'</b><span>'+sel.n+' pedido'+(sel.n===1?'':'s')+'</span></div><div><small>Comisión por ventas</small><b>'+money(sel.com)+'</b><span>'+(sel.fact>0?numES((sel.com/sel.fact*100).toFixed(2))+' % efectivo':'—')+'</span></div><div><small>Cuota fija</small><b>'+(cuo==null?'<span class="fi-pend">pendiente</span>':money(cuo))+'</b><span>al mes</span></div><div class="tot"><small>Total a facturar</small><b>'+money(sel.total)+'</b><span>+ IVA</span></div></div>';
+  var det='<div class="fi-tablewrap"><table class="fi-ptable fi-vtable fi-destable"><thead><tr><th>Tramo</th><th class="fi-num">%</th><th class="fi-num">Base</th><th class="fi-num">Comisión</th></tr></thead><tbody>'+
+    (sel.det.length?sel.det.map(function(d){return '<tr'+(d.activo?'':' class="fi-off"')+'><td>'+txtTramo(d.t)+'</td><td class="fi-num">'+numES(d.t.pct)+' %</td><td class="fi-num">'+money(d.parte)+'</td><td class="fi-num"><b>'+money(d.imp)+'</b></td></tr>';}).join(""):'<tr><td colspan="4" class="fi-empty">Sin tramos definidos: no se calcula comisión.</td></tr>')+
+    '</tbody><tfoot><tr><td colspan="3">Comisión</td><td class="fi-num">'+money(sel.com)+'</td></tr><tr><td colspan="3">Cuota fija</td><td class="fi-num">'+(cuo==null?'pendiente':money(cuo))+'</td></tr><tr class="fi-totrow"><td colspan="3">Total (sin IVA)</td><td class="fi-num">'+money(sel.total)+'</td></tr></tfoot></table></div>';
+  var hist='<div class="fi-tablewrap"><table class="fi-ptable fi-vtable fi-destable fi-histo"><thead><tr><th>Mes</th><th class="fi-num">Pedidos</th><th class="fi-num">Facturación</th><th class="fi-num">Tu comisión</th><th class="fi-num">Total</th></tr></thead><tbody>'+
+    liqs.map(function(l){return '<tr data-emes="'+l.mes+'" class="'+(l.mes===e.mes?'sel':'')+'"><td>'+esc(nombreMes(l.mes))+'</td><td class="fi-num">'+l.n+'</td><td class="fi-num">'+money(l.fact)+'</td><td class="fi-num">'+money(l.com)+'</td><td class="fi-num"><b>'+money(l.total)+'</b></td></tr>';}).join("")+
+    '</tbody><tfoot><tr class="fi-totrow"><td>Últimos 12 meses</td><td class="fi-num">'+liqs.reduce(function(s,l){return s+l.n;},0)+'</td><td class="fi-num">'+money(liqs.reduce(function(s,l){return s+l.fact;},0))+'</td><td class="fi-num">'+money(liqs.reduce(function(s,l){return s+l.com;},0))+'</td><td class="fi-num">'+money(liqs.reduce(function(s,l){return s+l.total;},0))+'</td></tr></tfoot></table></div>';
+  var filas=f.tramos.map(function(t,i){return '<div class="fi-tramo"><span>De</span><input data-tr="'+i+'" data-k="desde" type="number" min="0" step="0.01" value="'+esc(t.desde)+'"><span>€ a</span><input data-tr="'+i+'" data-k="hasta" type="number" min="0" step="0.01" placeholder="sin límite" value="'+esc(t.hasta)+'"><span>€ →</span><input data-tr="'+i+'" data-k="pct" type="number" min="0" step="0.01" value="'+esc(t.pct)+'"><span>%</span><button class="fi-rowdel" data-trdel="'+i+'" title="Quitar tramo">✕</button></div>';}).join("");
+  var cond='<div class="fi-card2"><h3>Condiciones pactadas</h3><p class="fi-sub">Se aplican al cálculo y al contrato de prestación de servicios.</p>'+
+    '<div class="fi-form-row2"><div><label class="fi-l">Cuota fija mensual (€)</label><input id="ec_cuota" type="number" min="0" step="0.01" placeholder="Pendiente de definir" value="'+esc(f.cuota)+'"></div><div><label class="fi-l">Inicio del servicio</label><input id="ec_ini" type="date" value="'+esc(f.inicio)+'"></div></div>'+
+    '<label class="fi-l">Comisión por tramos de facturación mensual</label>'+(filas||'<p class="fi-hint" style="margin:0 0 6px">Sin tramos. Ejemplo: de 0 a 1.000 € → 1 %; de 1.000 a 3.000 € → 2 %; más de 3.000 € (sin límite) → 3 %.</p>')+
+    '<button class="fi-edit" data-tradd="1">+ Añadir tramo</button>'+
+    '<label class="fi-l" style="margin-top:12px">Cómo se aplican los tramos</label><select id="ec_modo">'+opt("marginal","Escalonado: cada parte de la facturación paga el % de su tramo",f.modo)+opt("global","Global: toda la facturación paga el % del tramo alcanzado",f.modo)+'</select>'+
+    '<label class="fi-l">Pedidos que cuentan</label><select id="ec_base">'+opt("todos","Todos los pedidos recibidos",f.base)+opt("enviados","Solo los pedidos marcados como enviados",f.base)+'</select>'+
+    '<label class="fi-l">Condiciones particulares (opcional)</label><input id="ec_obs" value="'+esc(f.obs)+'" placeholder="Ej. Primer mes sin cuota">'+
+    (av.length?'<p class="fi-err" style="display:block">Revisa los tramos guardados: '+av.join("; ")+'.</p>':'')+
+    '<button class="fi-newbtn" data-ecsave="1">Guardar condiciones</button></div>';
+  return '<button class="fi-back" data-ecoback="1">← Volver a comercios</button><h2 class="fi-t">💶 Economía · '+esc(e.com.nombre)+'</h2>'+
+    '<div class="fi-tabbar"><span>Mes</span><select id="ec_mes" class="fi-sortsel">'+meses.map(function(m){return opt(m,nombreMes(m),e.mes);}).join("")+'</select></div>'+
+    resumen+'<h3 class="fi-h3">Cálculo de '+esc(nombreMes(e.mes).toLowerCase())+'</h3>'+det+'<h3 class="fi-h3">Últimos 12 meses</h3>'+hist+cond;}
+function leerEco(){var f=S.eco&&S.eco.form;if(!f)return;var g=function(id){var x=document.getElementById(id);return x?x.value:null;};
+  if(g("ec_cuota")!=null)f.cuota=g("ec_cuota");if(g("ec_ini")!=null)f.inicio=g("ec_ini");if(g("ec_modo")!=null)f.modo=g("ec_modo");if(g("ec_base")!=null)f.base=g("ec_base");if(g("ec_obs")!=null)f.obs=g("ec_obs");
+  app.querySelectorAll("[data-tr]").forEach(function(inp){var i=+inp.getAttribute("data-tr");if(f.tramos[i])f.tramos[i][inp.getAttribute("data-k")]=inp.value;});}
+async function guardarEco(){leerEco();var f=S.eco.form,n=function(v){v=String(v==null?"":v).replace(",",".").trim();return v===""?null:Number(v);};
+  var tr=f.tramos.map(function(t){return {desde:n(t.desde)||0,hasta:n(t.hasta),pct:n(t.pct)||0};}).filter(function(t){return t.pct>0||t.desde>0||t.hasta!=null;}).sort(function(a,b){return a.desde-b.desde;});
+  for(var i=0;i<tr.length;i++){if(tr[i].hasta!=null&&tr[i].hasta<=tr[i].desde){toast("En cada tramo, el «hasta» debe ser mayor que el «desde»");return false;}}
+  var row={comercio_id:S.eco.cid,cuota:n(f.cuota),tramos:tr,modo_tramos:f.modo,base:f.base,inicio:f.inicio||null,observaciones:f.obs.trim()||null,comision:tr.length===1&&tr[0].desde===0&&tr[0].hasta==null?tr[0].pct:null,actualizado:new Date().toISOString()};
+  var r=await sb.from("acuerdos").upsert(row).select().single();if(r.error){toast("No se pudo guardar: "+r.error.message);return false;}
+  S.eco.acuerdo=r.data;f.tramos=tr.map(function(t){return {desde:t.desde,hasta:t.hasta==null?"":t.hasta,pct:t.pct};});return true;}
+function bindEco(){
+  app.querySelectorAll("[data-eco]").forEach(function(b){b.onclick=function(){abrirEco(b.getAttribute("data-eco"));};});
+  var bk=app.querySelector("[data-ecoback]");if(bk)bk.onclick=function(){S.eco=null;render();};
+  if(!S.eco||S.eco.cargando)return;
+  var ms=document.getElementById("ec_mes");if(ms)ms.onchange=function(){leerEco();S.eco.mes=ms.value;render();};
+  app.querySelectorAll("[data-emes]").forEach(function(r){r.onclick=function(){leerEco();S.eco.mes=r.getAttribute("data-emes");render();window.scrollTo(0,0);};});
+  var ad=app.querySelector("[data-tradd]");if(ad)ad.onclick=function(){leerEco();var t=S.eco.form.tramos,last=t[t.length-1];t.push({desde:last&&last.hasta!==""?last.hasta:(t.length?"":0),hasta:"",pct:""});render();};
+  app.querySelectorAll("[data-trdel]").forEach(function(b){b.onclick=function(){leerEco();S.eco.form.tramos.splice(+b.getAttribute("data-trdel"),1);render();};});
+  var sv=app.querySelector("[data-ecsave]");if(sv)sv.onclick=async function(){sv.disabled=true;sv.textContent="Guardando…";if(await guardarEco()){render();toast("Condiciones guardadas");if(S.esSuper)cargarComercios().then(render);}else{sv.disabled=false;sv.textContent="Guardar condiciones";}};
+}
+async function cargarResumenEco(){var mes=mesesAtras(1)[0],ini=new Date();ini.setDate(1);ini.setHours(0,0,0,0);
+  var r=await Promise.all([sb.from("pedidos").select("comercio_id,total,creado,enviado_at").gte("creado",ini.toISOString()),sb.from("acuerdos").select("*"),sb.from("plataforma").select("*").eq("id",1).maybeSingle()]);
+  var ac={};(r[1].data||[]).forEach(function(a){ac[a.comercio_id]=a;});var plat=r[2].data||{};S.ecoRes={};
+  (S.comercios||[]).forEach(function(c){var ps=(r[0].data||[]).filter(function(o){return o.comercio_id===c.id;});S.ecoRes[c.id]=liquidacion(ps,ac[c.id],plat,mes);});}
+
 /* ============ EVENTOS ============ */
 function syncForm(){var f=S._f;if(!f)return;var g=function(id){return document.getElementById(id);};if(g("f_nombre"))f.nombre=g("f_nombre").value;if(g("f_desc"))f.desc=g("f_desc").value;if(g("f_precio"))f.precio=g("f_precio").value;if(g("f_unidad"))f.unidad=g("f_unidad").value;if(g("f_cat"))f.cat=g("f_cat").value;if(g("f_forma"))f.forma=g("f_forma").value;if(g("f_color"))f.color=g("f_color").value;}
 function updatePreview(){var f=S._f;if(!f)return;var prev=document.getElementById("f_prev");if(!prev)return;prev.src=f.img||artFor(f.nombre,f.cat,f.desc,{shape:f.forma,color:f.color});}
 function bind(){
-  bindSuper();bindMiComercio();bindDocs();bindEdicion();pintarQRsPagina();
+  bindSuper();bindMiComercio();bindDocs();bindEco();bindEdicion();pintarQRsPagina();
   app.querySelectorAll("[data-view]").forEach(function(b){b.onclick=function(){S.view=b.getAttribute("data-view");S.screen="shop";S.editId=null;S.adding=false;S._f=null;if(S.view==="admin"&&S.user){cargarPedidos().then(render);return;}render();};});
   var home=app.querySelector('[data-act="home"]');if(home)home.onclick=function(){S.view="tienda";S.screen="shop";render();};
   app.querySelectorAll("[data-cat]").forEach(function(b){b.onclick=function(){S.cat=b.getAttribute("data-cat");render();};});
@@ -1029,7 +1112,7 @@ function bind(){
     render();ids.forEach(function(k){var el=document.getElementById(k);if(el&&v[k]!=null){el.value=v[k];el.dispatchEvent(new Event("input"));}});var oc=document.getElementById("c_ok");if(oc){oc.checked=okv;oc.dispatchEvent(new Event("change"));}};});
   // login
   var lg=app.querySelector("[data-login]");if(lg)lg.onclick=async function(){var em=document.getElementById("l_email").value.trim();var pw=document.getElementById("l_pass").value;var msg=document.getElementById("l_msg");if(!configurado){msg.textContent="Configura Supabase primero.";return;}lg.disabled=true;lg.textContent="Entrando…";var r=await sb.auth.signInWithPassword({email:em,password:pw});if(r.error){msg.textContent="No se pudo entrar: "+r.error.message;lg.disabled=false;lg.textContent="Entrar";return;}S.user=r.data.user;await cargarPermisos();if(S.esMiembro){await Promise.all([cargarPedidos(),cargarProductos(),S.esSuper?cargarComercios():null]);}render();};
-  app.querySelectorAll("[data-atab]").forEach(function(b){b.onclick=function(){if(S.adminTab==="comercio")leerMiComercio();S.adminTab=b.getAttribute("data-atab");S.pedidoId=null;S.doc=null;S.editPed=null;render();};});
+  app.querySelectorAll("[data-atab]").forEach(function(b){b.onclick=function(){if(S.adminTab==="comercio")leerMiComercio();S.adminTab=b.getAttribute("data-atab");S.pedidoId=null;S.doc=null;S.eco=null;S.editPed=null;render();};});
   app.querySelectorAll("[data-ped]").forEach(function(c){
     c.onclick=function(e){if(c._swiped){c._swiped=false;return;}if(e.target.closest("[data-send]")||e.target.closest("a"))return;S.pedidoId=c.getAttribute("data-ped");render();window.scrollTo(0,0);};
     var x0=0,y0=0,dx=0,mode=null,wrap=c.parentNode;
