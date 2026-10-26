@@ -235,6 +235,16 @@
   .fi-notaprev{margin-top:6px;font-size:.82rem;color:#7a5a00;background:#fff8e1;border-radius:8px;padding:5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .fi-notabox{background:#fff8e1;border-radius:14px;padding:10px 12px 12px;margin:0 0 12px}
   .fi-notabox textarea{background:#fff;margin-bottom:8px}
+  .fi-searchrow{display:flex;gap:8px;align-items:center}
+  .fi-searchrow input{flex:1;min-width:0}
+  .fi-repbtn{flex-shrink:0;border:1px solid var(--verde);background:#fff;color:var(--verde-osc);border-radius:30px;padding:11px 14px;font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap}
+  @media(max-width:520px){.fi-repbtn span{display:none}.fi-repbtn{padding:10px 13px}}
+  .fi-codbox{background:var(--verde-claro);border-radius:14px;padding:12px;margin:12px 0;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .fi-codbox b{font-size:1.9rem;letter-spacing:.18em;color:var(--verde-osc);font-family:ui-monospace,Menlo,Consolas,monospace}
+  .fi-codbox small{color:#666;font-size:.8rem}
+  .fi-codtag{font-size:.75rem;font-weight:700;background:#eef1f4;color:#455;border-radius:6px;padding:1px 6px;letter-spacing:.05em;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .fi-view .fi-codin,.fi-codin{width:100%;font-size:1.5rem;letter-spacing:.2em;text-align:center;text-transform:uppercase;padding:12px;border:1px solid #ddd;border-radius:12px;font-family:ui-monospace,Menlo,Consolas,monospace;box-sizing:border-box}
+  .fi-codchip{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.08em}
   .fi-tabs{display:flex;gap:6px;border-bottom:2px solid #eee;margin:4px 0 14px}
   .fi-tabs button{border:none;background:none;padding:10px 16px;font-weight:700;font-size:.95rem;color:#888;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
   .fi-tabs button.on{color:var(--verde-osc);border-bottom-color:var(--verde)}

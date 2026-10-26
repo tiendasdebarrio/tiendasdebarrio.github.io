@@ -305,14 +305,48 @@ async function borrarProducto(id){
   return true;
 }
 async function enviarPedido(datos,items,total,envio){
-  var row={comercio_id:C.id,acepta_condiciones:new Date().toISOString(),cliente:datos.nombre,telefono:datos.tel,direccion:datos.dir,pago:datos.pago,notas:datos.notas||null,total:total+envio,items:items.map(function(p){return {nombre:p.nombre,qty:p.qty,unidad:p.unidad,precio:p.precio};})};
-  if(!configurado)return true; // demo
-  var r=await sb.from("pedidos").insert(row);
+  var row={comercio_id:C.id,acepta_condiciones:new Date().toISOString(),cliente:datos.nombre,telefono:datos.tel,direccion:datos.dir,pago:datos.pago,notas:datos.notas||null,total:total+envio,items:items.map(function(p){return {id:p.id,nombre:p.nombre,qty:p.qty,unidad:p.unidad,precio:p.precio};})};
+  if(!configurado)return genCodigo(); // demo
+  var r;for(var intento=0;intento<4;intento++){row.codigo=genCodigo();r=await sb.from("pedidos").insert(row);if(!r.error||!/codigo|duplicate|23505/i.test((r.error.code||"")+r.error.message))break;}
   if(r.error){console.error(r.error);toast("Error al enviar el pedido");return false;}
+  guardarCodigoLocal(row.codigo);
   // Aviso por email vía Edge Function (si está desplegada)
   try{ await sb.functions.invoke("nuevo-pedido",{body:row}); }catch(e){ /* opcional */ }
+  return row.codigo;
+}
+/* ============ CÓDIGO DE PEDIDO (para repetir compras) ============ */
+var ALFA_COD="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function genCodigo(){var v=new Uint32Array(6);crypto.getRandomValues(v);var c="";for(var i=0;i<6;i++)c+=ALFA_COD[v[i]%ALFA_COD.length];return c;}
+function claveLocal(){return "fi_codigos_"+(C?C.slug:"");}
+function codigosLocales(){try{return JSON.parse(localStorage.getItem(claveLocal())||"[]");}catch(e){return [];}}
+function guardarCodigoLocal(c){try{var l=codigosLocales().filter(function(x){return x!==c;});l.unshift(c);localStorage.setItem(claveLocal(),JSON.stringify(l.slice(0,5)));}catch(e){}}
+async function repetirPedido(codigo){
+  var cod=String(codigo||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(!/^[A-Z2-9]{6}$/.test(cod)){toast("El código tiene 6 letras y números, por ejemplo K7M2QX");return false;}
+  var r=await sb.rpc("repetir_pedido",{p_comercio:C.id,p_codigo:cod});
+  if(r.error){console.error(r.error);toast("No se pudo consultar el código");return false;}
+  var items=r.data||[];if(!items.length){toast("No hay ningún pedido con el código "+cod+" en esta tienda");return false;}
+  var ok=0,fuera=[];
+  items.forEach(function(it){var p=(it.id&&find(it.id))||S.products.filter(function(x){return norm(x.nombre)===norm(it.nombre);})[0];
+    if(p&&p.activo!==false&&Number(it.qty)>0){S.cart[p.id]=+((S.cart[p.id]||0)+Number(it.qty)).toFixed(2);ok++;}else fuera.push(it.nombre);});
+  if(!ok){toast("Ninguno de los productos de ese pedido está disponible ahora");return false;}
+  guardarCodigoLocal(cod);
+  toast(ok+" producto"+(ok===1?"":"s")+" añadido"+(ok===1?"":"s")+" al carrito"+(fuera.length?". No disponible"+(fuera.length===1?"":"s")+": "+fuera.join(", "):""));
   return true;
 }
+function showRepetir(){var rec=codigosLocales();
+  var m=document.createElement("div");m.className="fi-modal";
+  m.innerHTML='<div class="fi-modal-card fi-catmodal"><h2>🔁 Repetir un pedido</h2><p class="fi-hint" style="margin:0 0 10px">Escribe el código que recibiste al terminar tu pedido y añadiremos al carrito los mismos productos y cantidades. Podrás cambiarlos antes de confirmar.</p>'+
+    '<input id="rp_cod" class="fi-codin" maxlength="7" autocomplete="off" autocapitalize="characters" placeholder="Ej. K7M2QX">'+
+    (rec.length?'<p class="fi-hint" style="margin:4px 0 8px">Tus últimos códigos en este dispositivo:</p><div class="fi-btnrow">'+rec.map(function(c){return '<button class="fi-edit fi-codchip" data-rc="'+esc(c)+'">'+esc(c)+'</button>';}).join("")+'</div>':'')+
+    '<div class="acts" style="margin-top:14px"><span></span><div class="fi-btnrow"><button class="fi-edit" id="rp_c">Cancelar</button><button class="fi-newbtn" id="rp_ok">Añadir al carrito</button></div></div></div>';
+  document.body.appendChild(m);var inp=m.querySelector("#rp_cod");
+  inp.oninput=function(){inp.value=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);};
+  m.onclick=function(e){if(e.target===m)m.remove();var c=e.target.closest&&e.target.closest("[data-rc]");if(c){inp.value=c.getAttribute("data-rc");}};
+  m.querySelector("#rp_c").onclick=function(){m.remove();};
+  var go=async function(){var b=m.querySelector("#rp_ok");b.disabled=true;if(await repetirPedido(inp.value)){m.remove();S.screen="checkout";S.view="tienda";render();window.scrollTo(0,0);}else b.disabled=false;};
+  m.querySelector("#rp_ok").onclick=go;inp.onkeydown=function(e){if(e.key==="Enter")go();};
+  setTimeout(function(){inp.focus();},50);}
 
 /* ============ COMERCIO ============ */
 async function cargarComercio(){
@@ -368,7 +402,7 @@ function shop(){
   var conProd={};S.products.forEach(function(p){if(p.activo!==false)conProd[p.cat]=1;});
   var cats=[{id:"todos",nombre:"Todos",emoji:"🛒"}].concat(getCats().filter(function(c){return conProd[c.id]||S.cat===c.id;})).map(function(c){return '<button data-cat="'+c.id+'" class="'+(S.cat===c.id?"on":"")+'"><span>'+c.emoji+'</span>'+c.nombre+'</button>';}).join("");
   var cards=list.map(function(p){return '<div class="fi-card" data-open="'+p.id+'"><div class="fi-thumb"><img loading="lazy" src="'+imgFor(p)+'" data-pid="'+p.id+'" onerror="__fbImg(this)" alt="'+esc(p.nombre)+'"></div><div class="fi-cbody"><h3>'+esc(p.nombre)+'</h3><p class="fi-desc">'+esc(p.desc)+'</p><div class="fi-price">'+money(p.precio)+' <small>/ '+p.unidad+'</small></div><div class="fi-stepwrap" data-sw="'+p.id+'">'+stepperInner(p)+'</div></div></div>';}).join("");
-  return '<div class="fi-hero"><h1>'+esc((C&&C.portada_titulo)||"Bienvenido a "+(C?C.nombre:"nuestra tienda"))+'</h1><p>'+esc((C&&C.portada_sub)||"Pide online y recibe en casa.")+'</p></div><div class="fi-sticky"><div class="fi-search"><input id="q" placeholder="🔍 Buscar producto…" value="'+esc(S.search)+'"></div><div class="fi-cats">'+cats+'</div></div>'+(list.length?'':'<p class="fi-empty">'+(S.products.some(function(p){return p.activo!==false;})?'No hay productos en esta categoría todavía.':'Esta tienda todavía no tiene productos publicados.')+'</p>')+'<div class="fi-grid">'+cards+'</div>';
+  return '<div class="fi-hero"><h1>'+esc((C&&C.portada_titulo)||"Bienvenido a "+(C?C.nombre:"nuestra tienda"))+'</h1><p>'+esc((C&&C.portada_sub)||"Pide online y recibe en casa.")+'</p></div><div class="fi-sticky"><div class="fi-search fi-searchrow"><input id="q" placeholder="🔍 Buscar producto…" value="'+esc(S.search)+'"><button class="fi-repbtn" data-repetir="1" title="Repetir un pedido anterior con su código">🔁<span> Repetir pedido</span></button></div><div class="fi-cats">'+cats+'</div></div>'+(list.length?'':'<p class="fi-empty">'+(S.products.some(function(p){return p.activo!==false;})?'No hay productos en esta categoría todavía.':'Esta tienda todavía no tiene productos publicados.')+'</p>')+'<div class="fi-grid">'+cards+'</div>';
 }
 function detail(){var p=find(S.detailId);if(!p){S.screen="shop";return shop();}var step=pasoQty(p);if(S._qty==null)S._qty=1;return '<div class="fi-view"><button class="fi-back" data-back="shop">← Volver</button><div class="fi-detail-img"><img loading="lazy" src="'+imgFor(p)+'" data-pid="'+p.id+'" onerror="__fbImg(this)" alt="'+esc(p.nombre)+'"></div><h2 class="fi-t">'+esc(p.nombre)+'</h2><p class="fi-desc-big">'+esc(p.desc)+'</p><div class="fi-price-big">'+money(p.precio)+' <small>/ '+p.unidad+'</small></div><div class="fi-qty"><button data-q="-">−</button><span id="qv">'+S._qty+' '+p.unidad+'</span><button data-q="+">+</button></div><div class="fi-subtotal">Subtotal: <b id="sub">'+money(p.precio*S._qty)+'</b></div><button class="fi-bigbtn" data-addq="'+p.id+'">Añadir al carrito</button></div>';}
 function checkout(){var items=cartItems();var total=cartTotal();var envio=envioDe(total);var minimo=Number((C&&C.pedido_minimo)||0);var rows=items.map(function(p){return '<div class="fi-order-row"><img loading="lazy" src="'+imgFor(p)+'" data-pid="'+p.id+'" onerror="__fbImg(this)" alt=""><div class="fi-or-info"><b>'+esc(p.nombre)+'</b><small>'+p.qty+' '+p.unidad+' × '+money(p.precio)+'</small></div><span>'+money(p.precio*p.qty)+'</span><button class="fi-or-del" data-rmcart="'+p.id+'" title="Eliminar del pedido" aria-label="Eliminar '+esc(p.nombre)+' del pedido">🗑</button></div>';}).join("");return '<div class="fi-view"><button class="fi-back" data-back="shop">← Seguir comprando</button><h2 class="fi-t">Tu pedido</h2>'+rows+'<div class="fi-totals"><div><span>Subtotal</span><span>'+money(total)+'</span></div><div><span>Envío '+(envio===0&&Number(C&&C.envio)>0?"(gratis desde "+fmtEur(C.envio_gratis)+")":"")+'</span><span>'+money(envio)+'</span></div><div class="fi-grand"><span>Total</span><span>'+money(total+envio)+'</span></div></div><h3>Datos de entrega</h3><input id="c_nombre" placeholder="Nombre y apellidos"><input id="c_tel" type="tel" inputmode="tel" autocomplete="tel" maxlength="22" placeholder="Teléfono (ej. +34 600 123 456)"><small id="c_tel_err" class="fi-err"></small><input id="c_dir" placeholder="Dirección de entrega" autocomplete="street-address"><textarea id="c_notas" maxlength="500" rows="3" placeholder="Notas para la tienda (opcional): horario de entrega preferente, piso, portero, sustituciones…"></textarea><select id="c_pago"><option value="tarjeta">Pago con tarjeta (al recibir)</option><option value="efectivo">Efectivo al recibir</option></select><p class="fi-legalinfo">Precios con IVA incluido. En productos perecederos (fruta, verdura y similares) no se aplica el derecho de desistimiento (art. 103.d del TRLGDCU); en productos no perecederos dispones de 14 días si están sin abrir. Si algún producto llega en mal estado, te lo cambiamos o reembolsamos.</p>'+(minimo>0&&total<minimo?'<p class="fi-err" style="display:block">Pedido mínimo: '+fmtEur(minimo)+'. Te faltan '+fmtEur(minimo-total)+'.</p>':'')+'<label class="fi-legalchk"><input type="checkbox" id="c_ok"><span>He leído y acepto las <a href="#" data-legal="condiciones">Condiciones generales de contratación</a> y la <a href="#" data-legal="privacidad">Política de privacidad</a>.</span></label><button class="fi-bigbtn" data-confirm="1" data-min="'+(minimo>0&&total<minimo?1:0)+'" disabled>Confirmar pedido · '+money(total+envio)+'</button><p class="fi-hint" id="c_hint">Completa nombre, un teléfono válido y dirección, y acepta las condiciones para continuar.</p></div>';}
@@ -394,7 +428,7 @@ function admin(){
     var list=arr.map(function(o){
       var n=(o.items||[]).length, env=!!o.enviado_at;
       return '<div class="fi-swipe'+(env?' undo':'')+'"><div class="fi-swipe-bg">'+(env?'↺ Pendiente':'✓ Enviado')+'</div>'+
-        '<div class="fi-pedido'+(env?' sent':'')+'" data-ped="'+o.id+'"><div class="fi-ped-top"><b>'+esc(o.cliente)+'</b><b>'+money(o.total)+'</b></div>'+
+        '<div class="fi-pedido'+(env?' sent':'')+'" data-ped="'+o.id+'"><div class="fi-ped-top"><b>'+esc(o.cliente)+(o.codigo?' <span class="fi-codtag">#'+esc(o.codigo)+'</span>':'')+'</b><b>'+money(o.total)+'</b></div>'+
         '<small>'+fmtFecha(o.creado)+' · '+n+' producto'+(n===1?'':'s')+' · Pago: '+esc(o.pago||"")+'</small><br><small>'+enlaceMapa(o.direccion)+'</small>'+(o.notas?'<div class="fi-notaprev">📝 '+esc(o.notas)+'</div>':'')+
         '<div class="fi-ped-foot">'+badgeEnvio(o)+'<button class="fi-sendbtn'+(env?' on':'')+'" data-send="'+o.id+'">'+(env?'✓ Enviado':'Marcar enviado')+'</button></div></div></div>';
     }).join("");
@@ -447,7 +481,7 @@ function pedidoDetalle(){
   var its=o.items||[];
   var filas=its.map(function(it){return '<tr><td>'+esc(it.nombre)+'</td><td class="fi-qtycell"><b>'+String(it.qty).replace(".",",")+' '+(it.unidad==="kg"?"kg":"ud")+'</b></td></tr>';}).join("");
   return '<button class="fi-back" data-pback="1">← Volver a pedidos</button>'+
-    '<div class="fi-pedido" style="cursor:default"><div class="fi-ped-top"><b>'+esc(o.cliente)+'</b><b>'+money(o.total)+'</b></div>'+
+    '<div class="fi-pedido" style="cursor:default"><div class="fi-ped-top"><b>'+esc(o.cliente)+(o.codigo?' <span class="fi-codtag">#'+esc(o.codigo)+'</span>':'')+'</b><b>'+money(o.total)+'</b></div>'+
     '<small>'+fmtFecha(o.creado)+' · Pago: '+esc(o.pago||"")+'</small><br><small>📞 <a href="tel:'+esc(String(o.telefono||"").replace(/[^\d+]/g,""))+'">'+esc(o.telefono)+'</a> · '+enlaceMapa(o.direccion)+'</small>'+
     '<div class="fi-ped-foot">'+badgeEnvio(o)+'<button class="fi-sendbtn'+(o.enviado_at?' on':'')+'" data-send="'+o.id+'">'+(o.enviado_at?'Marcar pendiente':'Marcar enviado')+'</button></div></div>'+
     '<div class="fi-notabox"><label class="fi-l" for="p_notas">📝 Notas del pedido</label><textarea id="p_notas" maxlength="1000" rows="3" placeholder="Sin notas. Puedes añadir horario de entrega, avisos, etc.">'+esc(o.notas||'')+'</textarea><button class="fi-edit" data-savenota="'+o.id+'">Guardar notas</button></div>'+'<div class="fi-tablewrap"><table class="fi-ptable fi-vtable"><thead><tr><th>Producto</th><th class="fi-qtycell">Cantidad</th></tr></thead><tbody>'+filas+'</tbody></table></div>';
@@ -766,7 +800,7 @@ function bind(){
       cf.disabled=!ok;var h=document.getElementById("c_hint");if(h)h.style.visibility=ok?"hidden":"visible";};
     ["c_nombre","c_tel","c_dir"].forEach(function(id){document.getElementById(id).addEventListener("input",chk);});
     document.getElementById("c_ok").addEventListener("change",chk);chk();}
-  if(cf)cf.onclick=async function(){var n=document.getElementById("c_nombre").value.trim(),tel=(normTel(document.getElementById("c_tel").value).pretty||""),dir=document.getElementById("c_dir").value.trim(),pago=document.getElementById("c_pago").value,notas=(document.getElementById("c_notas")||{value:""}).value.trim();if(!n||!tel||!dir){toast("Completa nombre, dirección y un teléfono válido");return;}if(!document.getElementById("c_ok").checked){toast("Debes aceptar las condiciones para hacer el pedido");return;}var txt0=cf.textContent;cf.disabled=true;cf.textContent="Enviando…";var items=cartItems();var total=cartTotal();var envio=envioDe(total);var ok=await enviarPedido({nombre:n,tel:tel,dir:dir,pago:pago,notas:notas},items,total,envio);if(ok){S.cart={};S.screen="shop";render();showConfirm(n,dir,tel);}else{cf.disabled=false;cf.textContent=txt0;}};
+  if(cf)cf.onclick=async function(){var n=document.getElementById("c_nombre").value.trim(),tel=(normTel(document.getElementById("c_tel").value).pretty||""),dir=document.getElementById("c_dir").value.trim(),pago=document.getElementById("c_pago").value,notas=(document.getElementById("c_notas")||{value:""}).value.trim();if(!n||!tel||!dir){toast("Completa nombre, dirección y un teléfono válido");return;}if(!document.getElementById("c_ok").checked){toast("Debes aceptar las condiciones para hacer el pedido");return;}var txt0=cf.textContent;cf.disabled=true;cf.textContent="Enviando…";var items=cartItems();var total=cartTotal();var envio=envioDe(total);var ok=await enviarPedido({nombre:n,tel:tel,dir:dir,pago:pago,notas:notas},items,total,envio);if(ok){S.cart={};S.screen="shop";render();showConfirm(n,dir,tel,ok);}else{cf.disabled=false;cf.textContent=txt0;}};
   app.querySelectorAll("[data-rmcart]").forEach(function(b){b.onclick=function(){var id=b.getAttribute("data-rmcart"),p=find(id);
     var ids=["c_nombre","c_tel","c_dir","c_pago","c_notas"],v={};ids.forEach(function(k){var el=document.getElementById(k);if(el)v[k]=el.value;});var okc=document.getElementById("c_ok");var okv=okc&&okc.checked;
     delete S.cart[id];toast("Eliminado: "+(p?p.nombre:"producto"));
@@ -793,6 +827,7 @@ function bind(){
     var r=await sb.from("pedidos").update({notas:v||null}).eq("id",id).eq("comercio_id",C.id).select("id,notas");
     if(r.error||!r.data||!r.data.length){toast("No se han guardado las notas"+(r.error?": "+r.error.message:""));sn.disabled=false;sn.textContent="Guardar notas";return;}
     (S.pedidos||[]).forEach(function(o){if(o.id===id)o.notas=r.data[0].notas;});sn.disabled=false;sn.textContent="Guardar notas";toast("Notas guardadas");};
+  var rpb=app.querySelector("[data-repetir]");if(rpb)rpb.onclick=showRepetir;
   app.querySelectorAll("[data-pf]").forEach(function(b){b.onclick=function(){S.pedFiltro=b.getAttribute("data-pf");render();};});
   var pb=app.querySelector("[data-pback]");if(pb)pb.onclick=function(){S.pedidoId=null;render();};
   var ps=document.getElementById("psort");if(ps)ps.onchange=function(){S.pedSort=ps.value;render();};
@@ -848,7 +883,10 @@ function showCatEditor(cat){
     if(await guardarCategoria(c,esNueva)){await cargarCategorias();S.openCats=S.openCats||{};S.openCats[c.id]=true;m.remove();render();toast(esNueva?"Categoría creada":"Categoría actualizada");}else b.disabled=false;};
   setTimeout(function(){inp.focus();},50);
 }
-function showConfirm(nombre,dir,tel){var m=document.createElement("div");m.className="fi-modal";m.innerHTML='<div class="fi-modal-card"><div class="fi-check">✓</div><h2>¡Pedido confirmado!</h2><p>Gracias, <b>'+esc(nombre)+'</b>. Te lo llevamos a <b>'+esc(dir)+'</b>.</p><p class="fi-muted">Te llamaremos al '+esc(tel)+' para confirmar la entrega.</p><button class="fi-bigbtn">Seguir comprando</button></div>';m.onclick=function(e){if(e.target===m||e.target.tagName==="BUTTON")m.remove();};document.body.appendChild(m);}
+function showConfirm(nombre,dir,tel,codigo){var m=document.createElement("div");m.className="fi-modal";m.innerHTML='<div class="fi-modal-card"><div class="fi-check">✓</div><h2>¡Pedido confirmado!</h2><p>Gracias, <b>'+esc(nombre)+'</b>. Te lo llevamos a <b>'+esc(dir)+'</b>.</p>'+
+  (codigo&&codigo!==true?'<div class="fi-codbox"><small>Código de tu pedido</small><b>'+esc(codigo)+'</b><button class="fi-edit" data-copy="1">📋 Copiar</button><small>Guárdalo: con él podrás repetir este mismo pedido en el futuro desde «🔁 Repetir pedido».</small></div>':'')+
+  '<p class="fi-muted">Te llamaremos al '+esc(tel)+' para confirmar la entrega.</p><button class="fi-bigbtn" data-cerrar="1">Seguir comprando</button></div>';
+  m.onclick=function(e){if(e.target.closest&&e.target.closest("[data-copy]")){try{navigator.clipboard.writeText(codigo);toast("Código copiado");}catch(_){}return;}if(e.target===m||(e.target.closest&&e.target.closest("[data-cerrar]")))m.remove();};document.body.appendChild(m);}
 
 /* ============ ARRANQUE ============ */
 (async function(){
