@@ -410,7 +410,7 @@ function sinAcceso(){return '<div class="fi-view"><h2 class="fi-t">Sin acceso a 
 function login(){return '<div class="fi-view"><h2 class="fi-t">Acceso tienda</h2><p class="fi-desc-big">Introduce tu email y contraseña para gestionar productos y ver pedidos.</p><input id="l_email" type="email" placeholder="Email"><input id="l_pass" type="password" placeholder="Contraseña"><button class="fi-bigbtn" data-login="1">Entrar</button><p class="fi-hint" id="l_msg"></p></div>';}
 function admin(){
   var tab=S.adminTab||"pedidos", np=S.products.length, no=(S.pedidos||[]).filter(function(o){return !o.enviado_at;}).length;
-  var head=superBar()+'<div class="fi-admin-head"><div><h2>Mi tienda</h2><p>'+esc(C.nombre)+' · '+esc((S.user&&S.user.email)||"")+'</p></div><div><button class="fi-edit" data-logout="1">Salir</button></div></div>'+
+  var head='<div class="fi-admin-head"><div><h2>Mi tienda</h2><p>'+esc(C.nombre)+' · '+esc((S.user&&S.user.email)||"")+'</p></div><div><button class="fi-edit" data-logout="1">Salir</button></div></div>'+
     '<div class="fi-tabs"><button data-atab="pedidos" class="'+(tab==="pedidos"?"on":"")+'">Pedidos <span>'+no+'</span></button>'+
     '<button data-atab="productos" class="'+(tab==="productos"?"on":"")+'">Productos <span>'+np+'</span></button>'+
     '<button data-atab="comercio" class="'+(tab==="comercio"?"on":"")+'">Mi comercio</button>'+
