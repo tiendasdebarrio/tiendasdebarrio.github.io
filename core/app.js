@@ -395,7 +395,7 @@ function admin(){
       var n=(o.items||[]).length, env=!!o.enviado_at;
       return '<div class="fi-swipe'+(env?' undo':'')+'"><div class="fi-swipe-bg">'+(env?'↺ Pendiente':'✓ Enviado')+'</div>'+
         '<div class="fi-pedido'+(env?' sent':'')+'" data-ped="'+o.id+'"><div class="fi-ped-top"><b>'+esc(o.cliente)+'</b><b>'+money(o.total)+'</b></div>'+
-        '<small>'+fmtFecha(o.creado)+' · '+n+' producto'+(n===1?'':'s')+' · Pago: '+esc(o.pago||"")+'</small><br><small>📍 '+esc(o.direccion)+'</small>'+
+        '<small>'+fmtFecha(o.creado)+' · '+n+' producto'+(n===1?'':'s')+' · Pago: '+esc(o.pago||"")+'</small><br><small>'+enlaceMapa(o.direccion)+'</small>'+
         '<div class="fi-ped-foot">'+badgeEnvio(o)+'<button class="fi-sendbtn'+(env?' on':'')+'" data-send="'+o.id+'">'+(env?'✓ Enviado':'Marcar enviado')+'</button></div></div></div>';
     }).join("");
     body='<div class="fi-tabbar"><select class="fi-sortsel" id="psort">'+
@@ -438,6 +438,8 @@ async function marcarEnviado(id,valor){
   (S.pedidos||[]).forEach(function(o){if(o.id===id)o.enviado_at=r.data[0].enviado_at;});
   toast(valor?"Pedido marcado como enviado":"Pedido marcado como pendiente");return true;
 }
+function enlaceMapa(dir){var d=String(dir||"").trim();if(!d)return "📍 —";var loc=(C&&C.localidad)||"";var q=d+(loc&&norm(d).indexOf(norm(loc))<0?", "+loc:"");
+  return '<a class="fi-maplink" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q)+'" target="_blank" rel="noopener" title="Abrir en Google Maps">📍 '+esc(d)+'</a>';}
 function fmtFecha(d){return d?new Date(d).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";}
 function pedidoDetalle(){
   var o=(S.pedidos||[]).filter(function(x){return x.id===S.pedidoId;})[0];
@@ -446,7 +448,7 @@ function pedidoDetalle(){
   var filas=its.map(function(it){return '<tr><td>'+esc(it.nombre)+'</td><td class="fi-qtycell"><b>'+String(it.qty).replace(".",",")+' '+(it.unidad==="kg"?"kg":"ud")+'</b></td></tr>';}).join("");
   return '<button class="fi-back" data-pback="1">← Volver a pedidos</button>'+
     '<div class="fi-pedido" style="cursor:default"><div class="fi-ped-top"><b>'+esc(o.cliente)+'</b><b>'+money(o.total)+'</b></div>'+
-    '<small>'+fmtFecha(o.creado)+' · Pago: '+esc(o.pago||"")+'</small><br><small>📞 <a href="tel:'+esc(String(o.telefono||"").replace(/[^\d+]/g,""))+'">'+esc(o.telefono)+'</a> · 📍 '+esc(o.direccion)+'</small>'+
+    '<small>'+fmtFecha(o.creado)+' · Pago: '+esc(o.pago||"")+'</small><br><small>📞 <a href="tel:'+esc(String(o.telefono||"").replace(/[^\d+]/g,""))+'">'+esc(o.telefono)+'</a> · '+enlaceMapa(o.direccion)+'</small>'+
     '<div class="fi-ped-foot">'+badgeEnvio(o)+'<button class="fi-sendbtn'+(o.enviado_at?' on':'')+'" data-send="'+o.id+'">'+(o.enviado_at?'Marcar pendiente':'Marcar enviado')+'</button></div></div>'+
     '<div class="fi-tablewrap"><table class="fi-ptable fi-vtable"><thead><tr><th>Producto</th><th class="fi-qtycell">Cantidad</th></tr></thead><tbody>'+filas+'</tbody></table></div>';
 }
@@ -774,7 +776,7 @@ function bind(){
   var lg=app.querySelector("[data-login]");if(lg)lg.onclick=async function(){var em=document.getElementById("l_email").value.trim();var pw=document.getElementById("l_pass").value;var msg=document.getElementById("l_msg");if(!configurado){msg.textContent="Configura Supabase primero.";return;}lg.disabled=true;lg.textContent="Entrando…";var r=await sb.auth.signInWithPassword({email:em,password:pw});if(r.error){msg.textContent="No se pudo entrar: "+r.error.message;lg.disabled=false;lg.textContent="Entrar";return;}S.user=r.data.user;await cargarPermisos();if(S.esMiembro){await Promise.all([cargarPedidos(),cargarProductos(),S.esSuper?cargarComercios():null]);}render();};
   app.querySelectorAll("[data-atab]").forEach(function(b){b.onclick=function(){if(S.adminTab==="comercio")leerMiComercio();S.adminTab=b.getAttribute("data-atab");S.pedidoId=null;render();};});
   app.querySelectorAll("[data-ped]").forEach(function(c){
-    c.onclick=function(e){if(c._swiped){c._swiped=false;return;}if(e.target.closest("[data-send]"))return;S.pedidoId=c.getAttribute("data-ped");render();window.scrollTo(0,0);};
+    c.onclick=function(e){if(c._swiped){c._swiped=false;return;}if(e.target.closest("[data-send]")||e.target.closest("a"))return;S.pedidoId=c.getAttribute("data-ped");render();window.scrollTo(0,0);};
     var x0=0,y0=0,dx=0,mode=null,wrap=c.parentNode;
     c.addEventListener("touchstart",function(e){var t=e.touches[0];x0=t.clientX;y0=t.clientY;dx=0;mode=null;},{passive:true});
     c.addEventListener("touchmove",function(e){var t=e.touches[0],mx=t.clientX-x0,my=t.clientY-y0;
