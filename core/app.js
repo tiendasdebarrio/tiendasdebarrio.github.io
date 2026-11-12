@@ -426,6 +426,7 @@ function admin(){
       if(srt==="imp_desc")return Number(y.total)-Number(x.total);
       if(srt==="imp_asc")return Number(x.total)-Number(y.total);
       var dx=new Date(x.creado),dy=new Date(y.creado);return srt==="fecha_asc"?dx-dy:dy-dx;});
+    S._pedVis=arr.map(function(o){return o.id;});
     var list=arr.map(function(o){
       var n=(o.items||[]).length, env=!!o.enviado_at;
       return '<div class="fi-swipe'+(env?' undo':'')+'"><div class="fi-swipe-bg">'+(env?'↺ Pendiente':'✓ Enviado')+'</div>'+
@@ -436,7 +437,7 @@ function admin(){
     body='<div class="fi-tabbar"><select class="fi-sortsel" id="psort">'+
       opt("fecha_desc","Fecha: más recientes",srt)+opt("fecha_asc","Fecha: más antiguos",srt)+
       opt("imp_desc","Importe: mayor a menor",srt)+opt("imp_asc","Importe: menor a mayor",srt)+
-      '</select><button class="fi-edit" data-refresh="1">↻ Actualizar</button></div>'+
+      '</select><button class="fi-edit" data-refresh="1">↻ Actualizar</button>'+(S.esSuper&&arr.length?'<button class="fi-del" data-delvis="1">🗑 Borrar '+(arr.length===1?'este pedido':'estos '+arr.length)+'</button>':'')+'</div>'+
       '<div class="fi-pfilter"><button data-pf="pend" class="'+(pf==="pend"?"on":"")+'">Pendientes ('+nPend+')</button><button data-pf="env" class="'+(pf==="env"?"on":"")+'">Enviados ('+nEnv+')</button><button data-pf="todos" class="'+(pf==="todos"?"on":"")+'">Todos ('+todos.length+')</button></div>'+
       (list?'<p class="fi-swipehint">Desliza un pedido hacia la izquierda para marcarlo como enviado.</p>'+list:'<p class="fi-empty">'+(todos.length?(pf==="env"?'No hay pedidos enviados.':pf==="pend"?'No hay pedidos pendientes. 🎉':'Todavía no hay pedidos.'):'Todavía no hay pedidos.')+'</p>');
   }else if(tab==="comercio"){body=miComercioHTML();
@@ -474,6 +475,14 @@ async function marcarEnviado(id,valor){
   (S.pedidos||[]).forEach(function(o){if(o.id===id)o.enviado_at=r.data[0].enviado_at;});
   toast(valor?"Pedido marcado como enviado":"Pedido marcado como pendiente");return true;
 }
+async function borrarPedidos(ids){if(!ids.length)return false;
+  var r=await sb.from("pedidos").delete().in("id",ids).select("id");
+  if(r.error||!r.data||!r.data.length){console.error(r.error);toast("No se ha podido borrar"+(r.error?": "+r.error.message:" (sin permiso)"));return false;}
+  var bor={};r.data.forEach(function(x){bor[x.id]=1;});S.pedidos=(S.pedidos||[]).filter(function(o){return !bor[o.id];});
+  toast(r.data.length===1?"Pedido borrado":r.data.length+" pedidos borrados");return true;}
+function confirmarDosToques(b,txt,accion){b.onclick=async function(e){e.stopPropagation();
+  if(!b._arm){b._arm=true;b._txt=b.textContent;b.textContent=txt;b.classList.add("arm");b._t=setTimeout(function(){b._arm=false;b.textContent=b._txt;b.classList.remove("arm");},4000);return;}
+  clearTimeout(b._t);b.disabled=true;b.textContent="Borrando…";await accion();};}
 function enlaceMapa(dir){var d=String(dir||"").trim();if(!d)return "📍 —";var loc=(C&&C.localidad)||"";var q=d+(loc&&norm(d).indexOf(norm(loc))<0?", "+loc:"");
   return '<a class="fi-maplink" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q)+'" target="_blank" rel="noopener" title="Abrir en Google Maps">📍 '+esc(d)+'</a>';}
 function fmtFecha(d){return d?new Date(d).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";}
@@ -486,7 +495,7 @@ function pedidoDetalle(){
     '<div class="fi-pedido" style="cursor:default"><div class="fi-ped-top"><b>'+esc(o.cliente)+(o.codigo?' <span class="fi-codtag">#'+esc(o.codigo)+'</span>':'')+'</b><b>'+money(o.total)+'</b></div>'+
     '<small>'+fmtFecha(o.creado)+' · Pago: '+esc(o.pago||"")+'</small><br><small>📞 <a href="tel:'+esc(String(o.telefono||"").replace(/[^\d+]/g,""))+'">'+esc(o.telefono)+'</a> · '+enlaceMapa(o.direccion)+'</small>'+
     '<div class="fi-ped-foot">'+badgeEnvio(o)+'<button class="fi-sendbtn'+(o.enviado_at?' on':'')+'" data-send="'+o.id+'">'+(o.enviado_at?'Marcar pendiente':'Marcar enviado')+'</button></div></div>'+
-    '<div class="fi-notabox"><label class="fi-l" for="p_notas">📝 Notas del pedido</label><textarea id="p_notas" maxlength="1000" rows="3" placeholder="Sin notas. Puedes añadir horario de entrega, avisos, etc.">'+esc(o.notas||'')+'</textarea><button class="fi-edit" data-savenota="'+o.id+'">Guardar notas</button></div>'+filas;
+    '<div class="fi-notabox"><label class="fi-l" for="p_notas">📝 Notas del pedido</label><textarea id="p_notas" maxlength="1000" rows="3" placeholder="Sin notas. Puedes añadir horario de entrega, avisos, etc.">'+esc(o.notas||'')+'</textarea><button class="fi-edit" data-savenota="'+o.id+'">Guardar notas</button></div>'+filas+(S.esSuper?'<div class="fi-delped"><button class="fi-del" data-delped="'+o.id+'">🗑 Borrar este pedido</button></div>':'');
 }
 /* ---- Desglose del pedido con precios, y edición por el comercio ---- */
 function uds(u){return u==="kg"?"kg":"ud";}
@@ -1194,6 +1203,8 @@ function bind(){
     (S.pedidos||[]).forEach(function(o){if(o.id===id)o.notas=r.data[0].notas;});sn.disabled=false;sn.textContent="Guardar notas";toast("Notas guardadas");};
   var rpb=app.querySelector("[data-repetir]");if(rpb)rpb.onclick=showRepetir;
   app.querySelectorAll("[data-pf]").forEach(function(b){b.onclick=function(){S.pedFiltro=b.getAttribute("data-pf");render();};});
+  var dp=app.querySelector("[data-delped]");if(dp)confirmarDosToques(dp,"¿Seguro? Pulsa otra vez",async function(){if(await borrarPedidos([dp.getAttribute("data-delped")])){S.pedidoId=null;S.editPed=null;}render();});
+  var dv=app.querySelector("[data-delvis]");if(dv)confirmarDosToques(dv,"¿Borrar "+(S._pedVis||[]).length+"? Pulsa otra vez",async function(){await borrarPedidos(S._pedVis||[]);render();});
   var pb=app.querySelector("[data-pback]");if(pb)pb.onclick=function(){S.pedidoId=null;S.editPed=null;render();};
   var ps=document.getElementById("psort");if(ps)ps.onchange=function(){S.pedSort=ps.value;render();};
   var aqs=document.getElementById("aq");if(aqs)aqs.oninput=function(){S.adminQ=aqs.value;var pos=aqs.selectionStart;render();var n=document.getElementById("aq");if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
