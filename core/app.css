@@ -315,3 +315,5 @@
   .fi-pedido b{color:var(--verde-osc)}
   .fi-pedido .li{color:#555;font-size:.85rem;padding:2px 0}
   .fi-load{text-align:center;color:#999;padding:40px;font-size:.9rem}
+
+.fi-resp{border-left:5px solid #e0a100;background:#fff8e1}.fi-resp p{margin:6px 0;line-height:1.45}
